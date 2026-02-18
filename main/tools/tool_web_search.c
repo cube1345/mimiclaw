@@ -13,7 +13,15 @@
 
 static const char *TAG = "web_search";
 
-static char s_search_key[128] = {0};
+typedef enum {
+    SEARCH_PROVIDER_NONE = 0,
+    SEARCH_PROVIDER_BRAVE,
+    SEARCH_PROVIDER_TAVILY,
+} search_provider_t;
+
+static char s_brave_key[128] = {0};
+static char s_tavily_key[128] = {0};
+static search_provider_t s_provider = SEARCH_PROVIDER_NONE;
 
 #define SEARCH_BUF_SIZE     (16 * 1024)
 #define SEARCH_RESULT_COUNT 5
@@ -44,9 +52,12 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 esp_err_t tool_web_search_init(void)
 {
-    /* Start with build-time default */
+    /* Start with build-time defaults */
     if (MIMI_SECRET_SEARCH_KEY[0] != '\0') {
-        strncpy(s_search_key, MIMI_SECRET_SEARCH_KEY, sizeof(s_search_key) - 1);
+        strncpy(s_brave_key, MIMI_SECRET_SEARCH_KEY, sizeof(s_brave_key) - 1);
+    }
+    if (MIMI_SECRET_TAVILY_KEY[0] != '\0') {
+        strncpy(s_tavily_key, MIMI_SECRET_TAVILY_KEY, sizeof(s_tavily_key) - 1);
     }
 
     /* NVS overrides take highest priority (set via CLI) */
@@ -55,15 +66,30 @@ esp_err_t tool_web_search_init(void)
         char tmp[128] = {0};
         size_t len = sizeof(tmp);
         if (nvs_get_str(nvs, MIMI_NVS_KEY_API_KEY, tmp, &len) == ESP_OK && tmp[0]) {
-            strncpy(s_search_key, tmp, sizeof(s_search_key) - 1);
+            strncpy(s_brave_key, tmp, sizeof(s_brave_key) - 1);
+        }
+        memset(tmp, 0, sizeof(tmp));
+        len = sizeof(tmp);
+        if (nvs_get_str(nvs, MIMI_NVS_KEY_TAVILY_KEY, tmp, &len) == ESP_OK && tmp[0]) {
+            strncpy(s_tavily_key, tmp, sizeof(s_tavily_key) - 1);
         }
         nvs_close(nvs);
     }
 
-    if (s_search_key[0]) {
-        ESP_LOGI(TAG, "Web search initialized (key configured)");
+    if (s_tavily_key[0]) {
+        s_provider = SEARCH_PROVIDER_TAVILY;
+    } else if (s_brave_key[0]) {
+        s_provider = SEARCH_PROVIDER_BRAVE;
     } else {
-        ESP_LOGW(TAG, "No search API key. Use CLI: set_search_key <KEY>");
+        s_provider = SEARCH_PROVIDER_NONE;
+    }
+
+    if (s_provider == SEARCH_PROVIDER_TAVILY) {
+        ESP_LOGI(TAG, "Web search initialized (provider=tavily)");
+    } else if (s_provider == SEARCH_PROVIDER_BRAVE) {
+        ESP_LOGI(TAG, "Web search initialized (provider=brave)");
+    } else {
+        ESP_LOGW(TAG, "No search API key. Use CLI: set_search_key or set_tavily_key");
     }
     return ESP_OK;
 }

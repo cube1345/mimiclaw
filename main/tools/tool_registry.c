@@ -4,6 +4,8 @@
 #include "tools/tool_get_time.h"
 #include "tools/tool_files.h"
 #include "tools/tool_cron.h"
+#include "tools/tool_gpio.h"
+#include "tools/tool_sgp30.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -11,7 +13,7 @@
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 12
+#define MAX_TOOLS 16
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -110,7 +112,7 @@ esp_err_t tool_registry_init(void)
     mimi_tool_t ef = {
         .name = "edit_file",
         .description = "Find and replace text in a file on SPIFFS. Replaces first occurrence of old_string with new_string.",
-        .input_schema_json =
+        .input_schema_json = 
             "{\"type\":\"object\","
             "\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Absolute path starting with " MIMI_SPIFFS_BASE "/\"},"
             "\"old_string\":{\"type\":\"string\",\"description\":\"Text to find\"},"
@@ -131,6 +133,73 @@ esp_err_t tool_registry_init(void)
         .execute = tool_list_dir_execute,
     };
     register_tool(&ld);
+
+    /* Register gpio_write */
+    mimi_tool_t gw = {
+        .name = "gpio_write",
+        .description = "Set an ESP32 GPIO output pin high or low. Use this for relays, digital outputs, or simple LEDs.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"pin\":{\"type\":\"integer\",\"description\":\"ESP32 GPIO number to drive as output\"},"
+            "\"level\":{\"type\":\"integer\",\"description\":\"0 for LOW, 1 for HIGH\"}"
+            "},"
+            "\"required\":[\"pin\",\"level\"]}",
+        .execute = tool_gpio_write_execute,
+    };
+    register_tool(&gw);
+
+    /* Register ws2812_set */
+    mimi_tool_t rgb = {
+        .name = "ws2812_set",
+        .description = "Set a single WS2812/NeoPixel RGB LED color. Useful for the onboard RGB LED on many ESP32-S3 boards.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"r\":{\"type\":\"integer\",\"description\":\"Red value 0-255\"},"
+            "\"g\":{\"type\":\"integer\",\"description\":\"Green value 0-255\"},"
+            "\"b\":{\"type\":\"integer\",\"description\":\"Blue value 0-255\"},"
+            "\"brightness\":{\"type\":\"integer\",\"description\":\"Optional brightness 0-255, defaults to 255\"},"
+            "\"pin\":{\"type\":\"integer\",\"description\":\"Optional GPIO override. Defaults to the configured onboard WS2812 pin.\"}"
+            "},"
+            "\"required\":[\"r\",\"g\",\"b\"]}",
+        .execute = tool_ws2812_set_execute,
+    };
+    register_tool(&rgb);
+
+    /* Register sgp30_read_air_quality */
+    mimi_tool_t sgp30 = {
+        .name = "sgp30_read_air_quality",
+        .description = "Read eCO2 and TVOC from an SGP30 air-quality sensor over I2C. Optional SDA/SCL GPIO overrides can be provided if the board defaults are not configured.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
+            "\"scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional SCL GPIO override\"},"
+            "\"i2c_port\":{\"type\":\"integer\",\"description\":\"Optional I2C port override; -1 means auto-select\"},"
+            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"}"
+            "},"
+            "\"required\":[]}",
+        .execute = tool_sgp30_read_air_quality_execute,
+    };
+    register_tool(&sgp30);
+
+    /* Register read_air_quality */
+    mimi_tool_t aq = {
+        .name = "read_air_quality",
+        .description = "Read air-quality telemetry from the onboard or attached sensor. Prefer this high-level tool when the user asks about air quality, TVOC, eCO2, VOC, or indoor air conditions. Currently backed by SGP30.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
+            "\"scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional SCL GPIO override\"},"
+            "\"i2c_port\":{\"type\":\"integer\",\"description\":\"Optional I2C port override; -1 means auto-select\"},"
+            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"}"
+            "},"
+            "\"required\":[]}",
+        .execute = tool_sgp30_read_air_quality_execute,
+    };
+    register_tool(&aq);
 
     /* Register cron_add */
     mimi_tool_t ca = {

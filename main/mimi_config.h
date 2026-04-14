@@ -46,6 +46,21 @@
 #ifndef MIMI_SECRET_TAVILY_KEY
 #define MIMI_SECRET_TAVILY_KEY      ""
 #endif
+#ifndef MIMI_SECRET_WS2812_GPIO
+#define MIMI_SECRET_WS2812_GPIO     48
+#endif
+#ifndef MIMI_SECRET_SGP30_SDA_GPIO
+#define MIMI_SECRET_SGP30_SDA_GPIO  (-1)
+#endif
+#ifndef MIMI_SECRET_SGP30_SCL_GPIO
+#define MIMI_SECRET_SGP30_SCL_GPIO  (-1)
+#endif
+#ifndef MIMI_SECRET_SGP30_I2C_PORT
+#define MIMI_SECRET_SGP30_I2C_PORT  (-1)
+#endif
+#ifndef MIMI_SECRET_SGP30_SCL_HZ
+#define MIMI_SECRET_SGP30_SCL_HZ    100000
+#endif
 
 /* WiFi */
 #define MIMI_WIFI_MAX_RETRY          10
@@ -87,7 +102,7 @@
 #define MIMI_LLM_PROVIDER_DEFAULT    "anthropic"
 #define MIMI_LLM_MAX_TOKENS          4096
 #define MIMI_LLM_API_URL             "https://api.anthropic.com/v1/messages"
-#define MIMI_OPENAI_API_URL          "https://api.openai.com/v1/chat/completions"
+#define MIMI_OPENAI_API_URL          "https://api.deepseek.com/chat/completions"
 #define MIMI_LLM_API_VERSION         "2023-06-01"
 #define MIMI_LLM_STREAM_BUF_SIZE     (32 * 1024)
 #define MIMI_LLM_LOG_VERBOSE_PAYLOAD 0
@@ -119,6 +134,13 @@
 
 /* Skills */
 #define MIMI_SKILLS_PREFIX           MIMI_SPIFFS_BASE "/skills/"
+
+/* Hardware IO */
+#define MIMI_WS2812_DEFAULT_GPIO     MIMI_SECRET_WS2812_GPIO
+#define MIMI_SGP30_DEFAULT_SDA_GPIO  MIMI_SECRET_SGP30_SDA_GPIO
+#define MIMI_SGP30_DEFAULT_SCL_GPIO  MIMI_SECRET_SGP30_SCL_GPIO
+#define MIMI_SGP30_DEFAULT_I2C_PORT  MIMI_SECRET_SGP30_I2C_PORT
+#define MIMI_SGP30_DEFAULT_SCL_HZ    MIMI_SECRET_SGP30_SCL_HZ
 
 /* WebSocket Gateway */
 #define MIMI_WS_PORT                 18789

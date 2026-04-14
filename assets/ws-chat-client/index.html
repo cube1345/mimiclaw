@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MimiClaw WebSocket Chat</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <p class="eyebrow">ESP32-S3 + WiFi + LLM</p>
+      <h1>MimiClaw 上位机聊天页</h1>
+      <p class="lede">
+        浏览器通过 WebSocket 直连 ESP32。你输入文字，或在支持的浏览器里用语音转文字，
+        ESP32 调用大模型后把回复返回到这个页面。
+      </p>
+    </section>
+
+    <section class="panel">
+      <div class="conn-grid">
+        <label class="field">
+          <span>ESP32 地址</span>
+          <input id="hostInput" type="text" value="192.168.1.88" placeholder="例如 192.168.1.88">
+        </label>
+        <label class="field">
+          <span>端口</span>
+          <input id="portInput" type="number" value="18789" min="1" max="65535">
+        </label>
+        <label class="field">
+          <span>会话 ID</span>
+          <input id="chatIdInput" type="text" value="pc_demo" placeholder="例如 pc_demo">
+        </label>
+      </div>
+
+      <div class="toolbar">
+        <button id="connectBtn" class="primary">连接 ESP32</button>
+        <button id="disconnectBtn" class="ghost" disabled>断开</button>
+        <button id="voiceBtn" class="ghost" disabled>语音输入</button>
+        <span id="statusBadge" class="badge offline">未连接</span>
+      </div>
+
+      <div id="chatLog" class="chat-log" aria-live="polite"></div>
+
+      <form id="chatForm" class="composer">
+        <label class="field grow">
+          <span>输入内容</span>
+          <textarea id="messageInput" rows="4" placeholder="例如：现在室内空气质量怎么样？" required></textarea>
+        </label>
+        <div class="composer-actions">
+          <button id="sendBtn" class="primary" type="submit" disabled>发送</button>
+          <button id="clearBtn" class="ghost" type="button">清空记录</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <template id="messageTpl">
+    <article class="msg">
+      <div class="msg-meta">
+        <span class="msg-role"></span>
+        <time class="msg-time"></time>
+      </div>
+      <div class="msg-body"></div>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>

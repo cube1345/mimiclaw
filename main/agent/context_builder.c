@@ -9,6 +9,9 @@
 
 static const char *TAG = "context";
 
+#define MIMI_STRINGIFY_IMPL(x) #x
+#define MIMI_STRINGIFY(x) MIMI_STRINGIFY_IMPL(x)
+
 static size_t append_file(char *buf, size_t size, size_t offset, const char *path, const char *header)
 {
     FILE *f = fopen(path, "r");
@@ -44,9 +47,17 @@ esp_err_t context_build_system_prompt(char *buf, size_t size)
         "- write_file: Write/overwrite a file.\n"
         "- edit_file: Find-and-replace edit a file.\n"
         "- list_dir: List files, optionally filter by prefix.\n"
+        "- gpio_write: Set a GPIO pin high or low for digital output control.\n"
+        "- ws2812_set: Set the color of a single WS2812/NeoPixel RGB LED. Use this for the onboard RGB LED when available.\n"
+        "- read_air_quality: High-level tool to read indoor air-quality telemetry such as eCO2 and TVOC. Prefer this when the user asks about air quality.\n"
+        "- sgp30_read_air_quality: Read eCO2 and TVOC from an SGP30 air-quality sensor over I2C.\n"
         "- cron_add: Schedule a recurring or one-shot task. The message will trigger an agent turn when the job fires.\n"
         "- cron_list: List all scheduled cron jobs.\n"
         "- cron_remove: Remove a scheduled cron job by ID.\n\n"
+        "For onboard RGB LED control, ws2812_set defaults to GPIO " MIMI_STRINGIFY(MIMI_WS2812_DEFAULT_GPIO) " unless a pin is provided.\n"
+        "For SGP30 reads, use configured default SDA/SCL pins when available, otherwise only call the tool if the user provides I2C pin details.\n"
+        "Prefer read_air_quality over sgp30_read_air_quality unless the user explicitly names SGP30.\n"
+        "Be conservative with GPIO control and avoid pins that could disrupt boot or serial connectivity unless the user explicitly asks.\n\n"
         "When using cron_add for Telegram delivery, always set channel='telegram' and a valid numeric chat_id.\n\n"
         "Use tools when needed. Provide your final answer as text after using tools.\n\n"
         "## Memory\n"

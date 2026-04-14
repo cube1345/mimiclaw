@@ -1,0 +1,4 @@
+interface:
+  display_name: "MimiClaw Architecture"
+  short_description: "Route MimiClaw firmware changes across agent, channels, tools, memory, and startup code."
+  default_prompt: "Use this skill when mapping or extending the MimiClaw ESP32-S3 firmware architecture."

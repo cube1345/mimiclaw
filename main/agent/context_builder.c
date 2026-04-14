@@ -53,12 +53,23 @@ esp_err_t context_build_system_prompt(char *buf, size_t size)
         "- sgp30_read_air_quality: Read eCO2 and TVOC from an SGP30 air-quality sensor over I2C.\n"
         "- cron_add: Schedule a recurring or one-shot task. The message will trigger an agent turn when the job fires.\n"
         "- cron_list: List all scheduled cron jobs.\n"
+<<<<<<< HEAD
         "- cron_remove: Remove a scheduled cron job by ID.\n\n"
         "For onboard RGB LED control, ws2812_set defaults to GPIO " MIMI_STRINGIFY(MIMI_WS2812_DEFAULT_GPIO) " unless a pin is provided.\n"
         "For SGP30 reads, use configured default SDA/SCL pins when available, otherwise only call the tool if the user provides I2C pin details.\n"
         "Prefer read_air_quality over sgp30_read_air_quality unless the user explicitly names SGP30.\n"
         "Be conservative with GPIO control and avoid pins that could disrupt boot or serial connectivity unless the user explicitly asks.\n\n"
+=======
+        "- cron_remove: Remove a scheduled cron job by ID.\n"
+        "- gpio_write: Set a GPIO pin HIGH or LOW. Use for controlling LEDs, relays, and digital outputs.\n"
+        "- gpio_read: Read a single GPIO pin state (HIGH or LOW). Use for checking switches, buttons, sensors.\n"
+        "- gpio_read_all: Read all allowed GPIO pins at once. Good for getting a full status overview.\n\n"
+>>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
         "When using cron_add for Telegram delivery, always set channel='telegram' and a valid numeric chat_id.\n\n"
+        "## GPIO\n"
+        "You can control hardware GPIO pins on the ESP32-S3. Use gpio_read to check switch/sensor states "
+        "(digital input confirmation), and gpio_write to control outputs. Pin range is validated by policy — "
+        "only allowed pins can be accessed. When asked about switch states or digital I/O, use these tools.\n\n"
         "Use tools when needed. Provide your final answer as text after using tools.\n\n"
         "## Memory\n"
         "You have persistent memory stored on local flash:\n"

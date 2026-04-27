@@ -1,4 +1,5 @@
 #include "context_builder.h"
+
 #include "mimi_config.h"
 #include "memory/memory_store.h"
 #include "skills/skill_loader.h"
@@ -15,7 +16,9 @@ static const char *TAG = "context";
 static size_t append_file(char *buf, size_t size, size_t offset, const char *path, const char *header)
 {
     FILE *f = fopen(path, "r");
-    if (!f) return offset;
+    if (!f) {
+        return offset;
+    }
 
     if (header && offset < size - 1) {
         offset += snprintf(buf + offset, size - offset, "\n## %s\n\n", header);
@@ -32,44 +35,42 @@ esp_err_t context_build_system_prompt(char *buf, size_t size)
 {
     size_t off = 0;
 
-    off += snprintf(buf + off, size - off,
+    off += snprintf(
+        buf + off, size - off,
         "# MimiClaw\n\n"
         "You are MimiClaw, a personal AI assistant running on an ESP32-S3 device.\n"
-        "You communicate through Telegram and WebSocket.\n\n"
+        "You communicate through Telegram, Feishu, and WebSocket.\n\n"
         "Be helpful, accurate, and concise.\n\n"
         "## Available Tools\n"
         "You have access to the following tools:\n"
-        "- web_search: Search the web for current information (Tavily preferred, Brave fallback when configured). "
-        "Use this when you need up-to-date facts, news, weather, or anything beyond your training data.\n"
-        "- get_current_time: Get the current date and time. "
-        "You do NOT have an internal clock — always use this tool when you need to know the time or date.\n"
+        "- web_search: Search the web for current information (Tavily preferred, Brave fallback when configured). Use this for up-to-date facts.\n"
+        "- get_current_time: Get the current date and time. You do NOT have an internal clock, so use this tool when time matters.\n"
         "- read_file: Read a file (path must start with " MIMI_SPIFFS_BASE "/).\n"
-        "- write_file: Write/overwrite a file.\n"
-        "- edit_file: Find-and-replace edit a file.\n"
-        "- list_dir: List files, optionally filter by prefix.\n"
+        "- write_file: Write or overwrite a file in SPIFFS.\n"
+        "- edit_file: Find-and-replace edit a file in SPIFFS.\n"
+        "- list_dir: List files, optionally filtered by prefix.\n"
         "- gpio_write: Set a GPIO pin high or low for digital output control.\n"
-        "- ws2812_set: Set the color of a single WS2812/NeoPixel RGB LED. Use this for the onboard RGB LED when available.\n"
+        "- gpio_read: Read a single GPIO pin state.\n"
+        "- gpio_read_all: Read all allowed GPIO input states.\n"
+        "- set_status_light: Preferred high-level tool for the onboard RGB status light. Use this when the user asks to turn the board light red, blue, green, white, yellow, purple, cyan, orange, or off.\n"
+        "- ws2812_set: Lower-level RGB LED tool for explicit RGB values.\n"
         "- read_air_quality: High-level tool to read indoor air-quality telemetry such as eCO2 and TVOC. Prefer this when the user asks about air quality.\n"
-        "- sgp30_read_air_quality: Read eCO2 and TVOC from an SGP30 air-quality sensor over I2C.\n"
+        "- sgp30_read_air_quality: Lower-level SGP30 air-quality read tool.\n"
         "- cron_add: Schedule a recurring or one-shot task. The message will trigger an agent turn when the job fires.\n"
         "- cron_list: List all scheduled cron jobs.\n"
-<<<<<<< HEAD
         "- cron_remove: Remove a scheduled cron job by ID.\n\n"
-        "For onboard RGB LED control, ws2812_set defaults to GPIO " MIMI_STRINGIFY(MIMI_WS2812_DEFAULT_GPIO) " unless a pin is provided.\n"
-        "For SGP30 reads, use configured default SDA/SCL pins when available, otherwise only call the tool if the user provides I2C pin details.\n"
-        "Prefer read_air_quality over sgp30_read_air_quality unless the user explicitly names SGP30.\n"
-        "Be conservative with GPIO control and avoid pins that could disrupt boot or serial connectivity unless the user explicitly asks.\n\n"
-=======
-        "- cron_remove: Remove a scheduled cron job by ID.\n"
-        "- gpio_write: Set a GPIO pin HIGH or LOW. Use for controlling LEDs, relays, and digital outputs.\n"
-        "- gpio_read: Read a single GPIO pin state (HIGH or LOW). Use for checking switches, buttons, sensors.\n"
-        "- gpio_read_all: Read all allowed GPIO pins at once. Good for getting a full status overview.\n\n"
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
+        "For the onboard RGB status light, the configured WS2812 default pin is GPIO " MIMI_STRINGIFY(MIMI_WS2812_DEFAULT_GPIO) ".\n"
+        "Prefer set_status_light over ws2812_set unless the user explicitly asks for raw RGB values.\n"
+        "If the user says things like 'turn on the board light', 'set the LED red', '亮灯', '把板载灯调成红色', or '关闭灯', use set_status_light.\n"
+        "Use ws2812_set when the user gives explicit RGB values or asks for precise RGB control.\n"
+        "Prefer read_air_quality over sgp30_read_air_quality unless the user explicitly asks for direct SGP30 access or low-level I2C diagnostics.\n"
+        "If the user says things like 'read air quality', 'check TVOC', 'how is the indoor air', '空气质量怎么样', '检测气体', '读取空气传感器', '查看VOC', '查看eCO2', or '读一下SGP30数据', use read_air_quality.\n"
+        "Use sgp30_read_air_quality when the user explicitly mentions SGP30, I2C pin overrides, SDA/SCL wiring, or direct sensor debugging.\n"
+        "For SGP30 reads, use configured default SDA/SCL pins when available; otherwise only call the tool if the user provides I2C pin details.\n"
+        "Be conservative with GPIO control and avoid pins that could disrupt boot or USB/serial connectivity unless the user explicitly asks.\n\n"
         "When using cron_add for Telegram delivery, always set channel='telegram' and a valid numeric chat_id.\n\n"
         "## GPIO\n"
-        "You can control hardware GPIO pins on the ESP32-S3. Use gpio_read to check switch/sensor states "
-        "(digital input confirmation), and gpio_write to control outputs. Pin range is validated by policy — "
-        "only allowed pins can be accessed. When asked about switch states or digital I/O, use these tools.\n\n"
+        "You can control hardware GPIO pins on the ESP32-S3. Use gpio_read to check switch or sensor states, and gpio_write to control relays, MOSFETs, or simple LEDs. Only allowed pins can be accessed.\n\n"
         "Use tools when needed. Provide your final answer as text after using tools.\n\n"
         "## Memory\n"
         "You have persistent memory stored on local flash:\n"
@@ -80,37 +81,39 @@ esp_err_t context_build_system_prompt(char *buf, size_t size)
         "- When something noteworthy happens in a conversation, append it to today's daily note.\n"
         "- Always read_file MEMORY.md before writing, so you can edit_file to update without losing existing content.\n"
         "- Use get_current_time to know today's date before writing daily notes.\n"
-        "- Keep MEMORY.md concise and organized — summarize, don't dump raw conversation.\n"
-        "- You should proactively save memory without being asked. If the user tells you their name, preferences, or important facts, persist them immediately.\n\n"
+        "- Keep MEMORY.md concise and organized.\n"
+        "- You should proactively save memory without being asked.\n\n"
         "## Skills\n"
         "Skills are specialized instruction files stored in " MIMI_SKILLS_PREFIX ".\n"
         "When a task matches a skill, read the full skill file for detailed instructions.\n"
         "You can create new skills using write_file to " MIMI_SKILLS_PREFIX "<name>.md.\n");
 
-    /* Bootstrap files */
     off = append_file(buf, size, off, MIMI_SOUL_FILE, "Personality");
     off = append_file(buf, size, off, MIMI_USER_FILE, "User Info");
 
-    /* Long-term memory */
-    char mem_buf[4096];
-    if (memory_read_long_term(mem_buf, sizeof(mem_buf)) == ESP_OK && mem_buf[0]) {
-        off += snprintf(buf + off, size - off, "\n## Long-term Memory\n\n%s\n", mem_buf);
+    {
+        char mem_buf[4096];
+        if (memory_read_long_term(mem_buf, sizeof(mem_buf)) == ESP_OK && mem_buf[0]) {
+            off += snprintf(buf + off, size - off, "\n## Long-term Memory\n\n%s\n", mem_buf);
+        }
     }
 
-    /* Recent daily notes (last 3 days) */
-    char recent_buf[4096];
-    if (memory_read_recent(recent_buf, sizeof(recent_buf), 3) == ESP_OK && recent_buf[0]) {
-        off += snprintf(buf + off, size - off, "\n## Recent Notes\n\n%s\n", recent_buf);
+    {
+        char recent_buf[4096];
+        if (memory_read_recent(recent_buf, sizeof(recent_buf), 3) == ESP_OK && recent_buf[0]) {
+            off += snprintf(buf + off, size - off, "\n## Recent Notes\n\n%s\n", recent_buf);
+        }
     }
 
-    /* Skills */
-    char skills_buf[2048];
-    size_t skills_len = skill_loader_build_summary(skills_buf, sizeof(skills_buf));
-    if (skills_len > 0) {
-        off += snprintf(buf + off, size - off,
-            "\n## Available Skills\n\n"
-            "Available skills (use read_file to load full instructions):\n%s\n",
-            skills_buf);
+    {
+        char skills_buf[2048];
+        size_t skills_len = skill_loader_build_summary(skills_buf, sizeof(skills_buf));
+        if (skills_len > 0) {
+            off += snprintf(buf + off, size - off,
+                            "\n## Available Skills\n\n"
+                            "Available skills (use read_file to load full instructions):\n%s\n",
+                            skills_buf);
+        }
     }
 
     ESP_LOGI(TAG, "System prompt built: %d bytes", (int)off);

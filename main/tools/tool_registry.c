@@ -1,26 +1,25 @@
 #include "tool_registry.h"
-#include "mimi_config.h"
-#include "tools/tool_web_search.h"
-#include "tools/tool_get_time.h"
-#include "tools/tool_files.h"
-#include "tools/tool_cron.h"
-#include "tools/tool_gpio.h"
-<<<<<<< HEAD
-#include "tools/tool_sgp30.h"
-=======
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
 
+#include "mimi_config.h"
+#include "tools/tool_cron.h"
+#include "tools/tool_files.h"
+#include "tools/tool_get_time.h"
+#include "tools/tool_gpio.h"
+#include "tools/tool_sgp30.h"
+#include "tools/tool_web_search.h"
+
+#include <stdlib.h>
 #include <string.h>
 #include "esp_log.h"
 #include "cJSON.h"
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 16
+#define MAX_TOOLS 20
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
-static char *s_tools_json = NULL;  /* cached JSON array string */
+static char *s_tools_json = NULL;
 
 static void register_tool(const mimi_tool_t *tool)
 {
@@ -28,6 +27,7 @@ static void register_tool(const mimi_tool_t *tool)
         ESP_LOGE(TAG, "Tool registry full");
         return;
     }
+
     s_tools[s_tool_count++] = *tool;
     ESP_LOGI(TAG, "Registered tool: %s", tool->name);
 }
@@ -60,10 +60,10 @@ esp_err_t tool_registry_init(void)
 {
     s_tool_count = 0;
 
-    /* Register web_search */
     tool_web_search_init();
+    tool_gpio_init();
 
-    mimi_tool_t ws = {
+    register_tool(&(mimi_tool_t){
         .name = "web_search",
         .description = "Search the web for current information via Tavily (preferred) or Brave when configured.",
         .input_schema_json =
@@ -71,23 +71,17 @@ esp_err_t tool_registry_init(void)
             "\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The search query\"}},"
             "\"required\":[\"query\"]}",
         .execute = tool_web_search_execute,
-    };
-    register_tool(&ws);
+    });
 
-    /* Register get_current_time */
-    mimi_tool_t gt = {
+    register_tool(&(mimi_tool_t){
         .name = "get_current_time",
         .description = "Get the current date and time. Also sets the system clock. Call this when you need to know what time or date it is.",
         .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{},"
-            "\"required\":[]}",
+            "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
         .execute = tool_get_time_execute,
-    };
-    register_tool(&gt);
+    });
 
-    /* Register read_file */
-    mimi_tool_t rf = {
+    register_tool(&(mimi_tool_t){
         .name = "read_file",
         .description = "Read a file from SPIFFS storage. Path must start with " MIMI_SPIFFS_BASE "/.",
         .input_schema_json =
@@ -95,11 +89,9 @@ esp_err_t tool_registry_init(void)
             "\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Absolute path starting with " MIMI_SPIFFS_BASE "/\"}},"
             "\"required\":[\"path\"]}",
         .execute = tool_read_file_execute,
-    };
-    register_tool(&rf);
+    });
 
-    /* Register write_file */
-    mimi_tool_t wf = {
+    register_tool(&(mimi_tool_t){
         .name = "write_file",
         .description = "Write or overwrite a file on SPIFFS storage. Path must start with " MIMI_SPIFFS_BASE "/.",
         .input_schema_json =
@@ -108,25 +100,21 @@ esp_err_t tool_registry_init(void)
             "\"content\":{\"type\":\"string\",\"description\":\"File content to write\"}},"
             "\"required\":[\"path\",\"content\"]}",
         .execute = tool_write_file_execute,
-    };
-    register_tool(&wf);
+    });
 
-    /* Register edit_file */
-    mimi_tool_t ef = {
+    register_tool(&(mimi_tool_t){
         .name = "edit_file",
-        .description = "Find and replace text in a file on SPIFFS. Replaces first occurrence of old_string with new_string.",
-        .input_schema_json = 
+        .description = "Find and replace text in a file on SPIFFS. Replaces the first occurrence of old_string with new_string.",
+        .input_schema_json =
             "{\"type\":\"object\","
             "\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Absolute path starting with " MIMI_SPIFFS_BASE "/\"},"
             "\"old_string\":{\"type\":\"string\",\"description\":\"Text to find\"},"
             "\"new_string\":{\"type\":\"string\",\"description\":\"Replacement text\"}},"
             "\"required\":[\"path\",\"old_string\",\"new_string\"]}",
         .execute = tool_edit_file_execute,
-    };
-    register_tool(&ef);
+    });
 
-    /* Register list_dir */
-    mimi_tool_t ld = {
+    register_tool(&(mimi_tool_t){
         .name = "list_dir",
         .description = "List files on SPIFFS storage, optionally filtered by path prefix.",
         .input_schema_json =
@@ -134,110 +122,117 @@ esp_err_t tool_registry_init(void)
             "\"properties\":{\"prefix\":{\"type\":\"string\",\"description\":\"Optional path prefix filter, e.g. " MIMI_SPIFFS_BASE "/memory/\"}},"
             "\"required\":[]}",
         .execute = tool_list_dir_execute,
-    };
-    register_tool(&ld);
+    });
 
-    /* Register gpio_write */
-    mimi_tool_t gw = {
+    register_tool(&(mimi_tool_t){
         .name = "gpio_write",
         .description = "Set an ESP32 GPIO output pin high or low. Use this for relays, digital outputs, or simple LEDs.",
         .input_schema_json =
             "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"pin\":{\"type\":\"integer\",\"description\":\"ESP32 GPIO number to drive as output\"},"
-            "\"level\":{\"type\":\"integer\",\"description\":\"0 for LOW, 1 for HIGH\"}"
-            "},"
-            "\"required\":[\"pin\",\"level\"]}",
+            "\"properties\":{\"pin\":{\"type\":\"integer\",\"description\":\"ESP32 GPIO number to drive as output\"},"
+            "\"state\":{\"type\":\"integer\",\"description\":\"0 for LOW, 1 for HIGH\"}},"
+            "\"required\":[\"pin\",\"state\"]}",
         .execute = tool_gpio_write_execute,
-    };
-    register_tool(&gw);
+    });
 
-    /* Register ws2812_set */
-    mimi_tool_t rgb = {
-        .name = "ws2812_set",
-        .description = "Set a single WS2812/NeoPixel RGB LED color. Useful for the onboard RGB LED on many ESP32-S3 boards.",
+    register_tool(&(mimi_tool_t){
+        .name = "gpio_read",
+        .description = "Read a GPIO pin state. Returns HIGH or LOW. Use for buttons, switches, and digital inputs.",
         .input_schema_json =
             "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"r\":{\"type\":\"integer\",\"description\":\"Red value 0-255\"},"
+            "\"properties\":{\"pin\":{\"type\":\"integer\",\"description\":\"GPIO pin number\"}},"
+            "\"required\":[\"pin\"]}",
+        .execute = tool_gpio_read_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "gpio_read_all",
+        .description = "Read all allowed GPIO pin states in a single call.",
+        .input_schema_json =
+            "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
+        .execute = tool_gpio_read_all_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "ws2812_set",
+        .description = "Set a single WS2812/NeoPixel RGB LED color. Useful for the onboard RGB LED on ESP32-S3 boards. Defaults to the configured onboard WS2812 pin, typically GPIO48.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"r\":{\"type\":\"integer\",\"description\":\"Red value 0-255\"},"
             "\"g\":{\"type\":\"integer\",\"description\":\"Green value 0-255\"},"
             "\"b\":{\"type\":\"integer\",\"description\":\"Blue value 0-255\"},"
             "\"brightness\":{\"type\":\"integer\",\"description\":\"Optional brightness 0-255, defaults to 255\"},"
-            "\"pin\":{\"type\":\"integer\",\"description\":\"Optional GPIO override. Defaults to the configured onboard WS2812 pin.\"}"
-            "},"
+            "\"pin\":{\"type\":\"integer\",\"description\":\"Optional GPIO override. Defaults to the configured onboard WS2812 pin.\"}},"
             "\"required\":[\"r\",\"g\",\"b\"]}",
         .execute = tool_ws2812_set_execute,
-    };
-    register_tool(&rgb);
+    });
 
-    /* Register sgp30_read_air_quality */
-    mimi_tool_t sgp30 = {
+    register_tool(&(mimi_tool_t){
+        .name = "set_status_light",
+        .description = "Set the onboard RGB status light with a natural-language-friendly color. Prefer this when the user asks to turn the board light red, green, blue, white, yellow, purple, cyan, orange, or off.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"color\":{\"type\":\"string\",\"description\":\"Named color such as red, green, blue, white, yellow, orange, purple, cyan, or off\"},"
+            "\"brightness\":{\"type\":\"integer\",\"description\":\"Optional brightness 0-255, defaults to 255\"},"
+            "\"pin\":{\"type\":\"integer\",\"description\":\"Optional GPIO override. Defaults to the configured onboard WS2812 pin.\"},"
+            "\"r\":{\"type\":\"integer\",\"description\":\"Optional red value 0-255 when using explicit RGB\"},"
+            "\"g\":{\"type\":\"integer\",\"description\":\"Optional green value 0-255 when using explicit RGB\"},"
+            "\"b\":{\"type\":\"integer\",\"description\":\"Optional blue value 0-255 when using explicit RGB\"}},"
+            "\"required\":[]}",
+        .execute = tool_set_status_light_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
         .name = "sgp30_read_air_quality",
-        .description = "Read eCO2 and TVOC from an SGP30 air-quality sensor over I2C. Optional SDA/SCL GPIO overrides can be provided if the board defaults are not configured.",
+        .description = "Read eCO2 and TVOC from an SGP30 air-quality sensor over I2C. Use this for direct SGP30 reads, VOC/TVOC checks, or explicit sensor diagnostics. Chinese requests like '读取SGP30', '查看TVOC', or '检测空气数据' map here. Optional SDA/SCL GPIO overrides can be provided if board defaults are not configured.",
         .input_schema_json =
             "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
+            "\"properties\":{\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
             "\"scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional SCL GPIO override\"},"
             "\"i2c_port\":{\"type\":\"integer\",\"description\":\"Optional I2C port override; -1 means auto-select\"},"
-            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"}"
-            "},"
+            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"}},"
             "\"required\":[]}",
         .execute = tool_sgp30_read_air_quality_execute,
-    };
-    register_tool(&sgp30);
+    });
 
-    /* Register read_air_quality */
-    mimi_tool_t aq = {
+    register_tool(&(mimi_tool_t){
         .name = "read_air_quality",
-        .description = "Read air-quality telemetry from the onboard or attached sensor. Prefer this high-level tool when the user asks about air quality, TVOC, eCO2, VOC, or indoor air conditions. Currently backed by SGP30.",
+        .description = "Read air-quality telemetry from the onboard or attached sensor. Prefer this high-level tool when the user asks about air quality, TVOC, eCO2, VOC, indoor air conditions, or Chinese phrases such as '空气质量', '空气怎么样', '检测气体', 'VOC多少', or '读取传感器数据'. Currently backed by SGP30.",
         .input_schema_json =
             "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
+            "\"properties\":{\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
             "\"scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional SCL GPIO override\"},"
             "\"i2c_port\":{\"type\":\"integer\",\"description\":\"Optional I2C port override; -1 means auto-select\"},"
-            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"}"
-            "},"
+            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"}},"
             "\"required\":[]}",
         .execute = tool_sgp30_read_air_quality_execute,
-    };
-    register_tool(&aq);
+    });
 
-    /* Register cron_add */
-    mimi_tool_t ca = {
+    register_tool(&(mimi_tool_t){
         .name = "cron_add",
         .description = "Schedule a recurring or one-shot task. The message will trigger an agent turn when the job fires.",
         .input_schema_json =
             "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"name\":{\"type\":\"string\",\"description\":\"Short name for the job\"},"
+            "\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"Short name for the job\"},"
             "\"schedule_type\":{\"type\":\"string\",\"description\":\"'every' for recurring interval or 'at' for one-shot at a unix timestamp\"},"
             "\"interval_s\":{\"type\":\"integer\",\"description\":\"Interval in seconds (required for 'every')\"},"
             "\"at_epoch\":{\"type\":\"integer\",\"description\":\"Unix timestamp to fire at (required for 'at')\"},"
             "\"message\":{\"type\":\"string\",\"description\":\"Message to inject when the job fires, triggering an agent turn\"},"
-            "\"channel\":{\"type\":\"string\",\"description\":\"Optional reply channel (e.g. 'telegram'). If omitted, current turn channel is used when available\"},"
-            "\"chat_id\":{\"type\":\"string\",\"description\":\"Optional reply chat_id. Required when channel='telegram'. If omitted during a Telegram turn, current chat_id is used\"}"
-            "},"
+            "\"channel\":{\"type\":\"string\",\"description\":\"Optional reply channel (e.g. 'telegram' or 'feishu'). If omitted, current turn channel is used when available\"},"
+            "\"chat_id\":{\"type\":\"string\",\"description\":\"Optional reply chat_id. Required when channel='telegram'. If omitted during a Telegram turn, current chat_id is used\"}},"
             "\"required\":[\"name\",\"schedule_type\",\"message\"]}",
         .execute = tool_cron_add_execute,
-    };
-    register_tool(&ca);
+    });
 
-    /* Register cron_list */
-    mimi_tool_t cl = {
+    register_tool(&(mimi_tool_t){
         .name = "cron_list",
         .description = "List all scheduled cron jobs with their status, schedule, and IDs.",
         .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{},"
-            "\"required\":[]}",
+            "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
         .execute = tool_cron_list_execute,
-    };
-    register_tool(&cl);
+    });
 
-    /* Register cron_remove */
-    mimi_tool_t cr = {
+    register_tool(&(mimi_tool_t){
         .name = "cron_remove",
         .description = "Remove a scheduled cron job by its ID.",
         .input_schema_json =
@@ -245,45 +240,7 @@ esp_err_t tool_registry_init(void)
             "\"properties\":{\"job_id\":{\"type\":\"string\",\"description\":\"The 8-character job ID to remove\"}},"
             "\"required\":[\"job_id\"]}",
         .execute = tool_cron_remove_execute,
-    };
-    register_tool(&cr);
-
-    /* Register GPIO tools */
-    tool_gpio_init();
-
-    mimi_tool_t gw = {
-        .name = "gpio_write",
-        .description = "Set a GPIO pin HIGH or LOW. Controls LEDs, relays, and other digital outputs.",
-        .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{\"pin\":{\"type\":\"integer\",\"description\":\"GPIO pin number\"},"
-            "\"state\":{\"type\":\"integer\",\"description\":\"1 for HIGH, 0 for LOW\"}},"
-            "\"required\":[\"pin\",\"state\"]}",
-        .execute = tool_gpio_write_execute,
-    };
-    register_tool(&gw);
-
-    mimi_tool_t gr = {
-        .name = "gpio_read",
-        .description = "Read a GPIO pin state. Returns HIGH or LOW. Use for checking switches, sensors, and digital inputs.",
-        .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{\"pin\":{\"type\":\"integer\",\"description\":\"GPIO pin number\"}},"
-            "\"required\":[\"pin\"]}",
-        .execute = tool_gpio_read_execute,
-    };
-    register_tool(&gr);
-
-    mimi_tool_t ga = {
-        .name = "gpio_read_all",
-        .description = "Read all allowed GPIO pin states in a single call. Returns each pin's HIGH/LOW state.",
-        .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{},"
-            "\"required\":[]}",
-        .execute = tool_gpio_read_all_execute,
-    };
-    register_tool(&ga);
+    });
 
     build_tools_json();
 

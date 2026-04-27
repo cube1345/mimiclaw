@@ -1,16 +1,20 @@
 #include "tools/tool_gpio.h"
-<<<<<<< HEAD
+
+#include "tools/gpio_policy.h"
 #include "mimi_config.h"
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <string.h>
 #include "driver/gpio.h"
-#include "driver/rmt_tx.h"
 #include "driver/rmt_encoder.h"
+#include "driver/rmt_tx.h"
 #include "esp_log.h"
 #include "cJSON.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 
 static const char *TAG = "tool_gpio";
 
@@ -72,6 +76,30 @@ static bool get_optional_int(cJSON *root, const char *key, int *value)
     return true;
 }
 
+static const char *get_optional_string(cJSON *root, const char *key)
+{
+    cJSON *item = cJSON_GetObjectItem(root, key);
+    return cJSON_IsString(item) ? item->valuestring : NULL;
+}
+
+static esp_err_t validate_allowed_gpio(int pin, char *output, size_t output_size)
+{
+    if (!gpio_policy_pin_is_allowed(pin)) {
+        if (gpio_policy_pin_forbidden_hint(pin, output, output_size)) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        if (MIMI_GPIO_ALLOWED_CSV[0] != '\0') {
+            snprintf(output, output_size, "Error: pin %d is not in allowed list", pin);
+        } else {
+            snprintf(output, output_size, "Error: pin must be %d-%d",
+                     MIMI_GPIO_MIN_PIN, MIMI_GPIO_MAX_PIN);
+        }
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    return ESP_OK;
+}
+
 static esp_err_t ensure_output_gpio(int pin)
 {
     if (!GPIO_IS_VALID_OUTPUT_GPIO(pin)) {
@@ -91,14 +119,18 @@ static esp_err_t ensure_output_gpio(int pin)
 
 static uint8_t clamp_u8(int value)
 {
-    if (value < 0) return 0;
-    if (value > 255) return 255;
+    if (value < 0) {
+        return 0;
+    }
+    if (value > 255) {
+        return 255;
+    }
     return (uint8_t)value;
 }
 
 static uint8_t scale_component(uint8_t value, uint8_t brightness)
 {
-    return (uint8_t)(((uint16_t)value * brightness + 127) / 255);
+    return (uint8_t)(((uint16_t)value * brightness + 127U) / 255U);
 }
 
 static size_t ws2812_encoder_callback(const void *data, size_t data_size,
@@ -188,149 +220,14 @@ static esp_err_t ws2812_ensure_ready(int pin)
     }
 
     s_ws2812.gpio_num = pin;
-=======
-#include "tools/gpio_policy.h"
-#include "mimi_config.h"
-
-#include "driver/gpio.h"
-#include "esp_log.h"
-#include "cJSON.h"
-
-#include <string.h>
-#include <stdio.h>
-
-static const char *TAG = "tool_gpio";
-
-esp_err_t tool_gpio_init(void)
-{
-    ESP_LOGI(TAG, "GPIO tool initialized (pin range %d-%d)",
-             MIMI_GPIO_MIN_PIN, MIMI_GPIO_MAX_PIN);
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
     return ESP_OK;
 }
 
-esp_err_t tool_gpio_write_execute(const char *input_json, char *output, size_t output_size)
+static esp_err_t ws2812_apply_color(int pin, int red, int green, int blue, int brightness,
+                                    char *output, size_t output_size, const char *label)
 {
-    cJSON *root = cJSON_Parse(input_json);
-    if (!root) {
-        snprintf(output, output_size, "Error: invalid JSON input");
-        return ESP_ERR_INVALID_ARG;
-    }
-
-<<<<<<< HEAD
-    int pin = -1;
-    int level = -1;
-    if (!get_required_int(root, "pin", &pin) || !get_required_int(root, "level", &level)) {
-        snprintf(output, output_size, "Error: missing required numeric fields 'pin' and 'level'");
-=======
-    cJSON *pin_obj = cJSON_GetObjectItem(root, "pin");
-    cJSON *state_obj = cJSON_GetObjectItem(root, "state");
-
-    if (!cJSON_IsNumber(pin_obj)) {
-        snprintf(output, output_size, "Error: 'pin' required (integer)");
-        cJSON_Delete(root);
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (!cJSON_IsNumber(state_obj)) {
-        snprintf(output, output_size, "Error: 'state' required (0 or 1)");
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
-        cJSON_Delete(root);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-<<<<<<< HEAD
-    if (level != 0 && level != 1) {
-        snprintf(output, output_size, "Error: level must be 0 or 1");
-=======
-    int pin = (int)pin_obj->valuedouble;
-    int state = (int)state_obj->valuedouble;
-
-    if (!gpio_policy_pin_is_allowed(pin)) {
-        if (gpio_policy_pin_forbidden_hint(pin, output, output_size)) {
-            cJSON_Delete(root);
-            return ESP_ERR_INVALID_ARG;
-        }
-        if (MIMI_GPIO_ALLOWED_CSV[0] != '\0') {
-            snprintf(output, output_size, "Error: pin %d is not in allowed list", pin);
-        } else {
-            snprintf(output, output_size, "Error: pin must be %d-%d",
-                     MIMI_GPIO_MIN_PIN, MIMI_GPIO_MAX_PIN);
-        }
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
-        cJSON_Delete(root);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-<<<<<<< HEAD
-    esp_err_t err = ensure_output_gpio(pin);
-    if (err == ESP_OK) {
-        err = gpio_set_level(pin, level);
-    }
-
-    if (err == ESP_OK) {
-        snprintf(output, output_size, "OK: GPIO %d set %s", pin, level ? "HIGH" : "LOW");
-    } else if (err == ESP_ERR_INVALID_ARG) {
-        snprintf(output, output_size, "Error: GPIO %d is not a valid output pin", pin);
-    } else {
-        snprintf(output, output_size, "Error: failed to set GPIO %d (%s)", pin, esp_err_to_name(err));
-    }
-
-    ESP_LOGI(TAG, "gpio_write pin=%d level=%d -> %s", pin, level, esp_err_to_name(err));
-    cJSON_Delete(root);
-    return err;
-}
-
-esp_err_t tool_ws2812_set_execute(const char *input_json, char *output, size_t output_size)
-=======
-    if (gpio_set_direction(pin, GPIO_MODE_INPUT_OUTPUT) != ESP_OK ||
-        gpio_set_level(pin, state ? 1 : 0) != ESP_OK) {
-        snprintf(output, output_size, "Error: failed to configure/write pin %d", pin);
-        cJSON_Delete(root);
-        return ESP_FAIL;
-    }
-
-    snprintf(output, output_size, "Pin %d set to %s", pin, state ? "HIGH" : "LOW");
-    ESP_LOGI(TAG, "gpio_write: pin %d -> %s", pin, state ? "HIGH" : "LOW");
-
-    cJSON_Delete(root);
-    return ESP_OK;
-}
-
-esp_err_t tool_gpio_read_execute(const char *input_json, char *output, size_t output_size)
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
-{
-    cJSON *root = cJSON_Parse(input_json);
-    if (!root) {
-        snprintf(output, output_size, "Error: invalid JSON input");
-        return ESP_ERR_INVALID_ARG;
-    }
-
-<<<<<<< HEAD
-    int red = -1;
-    int green = -1;
-    int blue = -1;
-    if (!get_required_int(root, "r", &red) ||
-        !get_required_int(root, "g", &green) ||
-        !get_required_int(root, "b", &blue)) {
-        snprintf(output, output_size, "Error: missing required numeric fields 'r', 'g', and 'b'");
-=======
-    cJSON *pin_obj = cJSON_GetObjectItem(root, "pin");
-    if (!cJSON_IsNumber(pin_obj)) {
-        snprintf(output, output_size, "Error: 'pin' required (integer)");
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
-        cJSON_Delete(root);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-<<<<<<< HEAD
-    int pin = MIMI_WS2812_DEFAULT_GPIO;
-    int brightness = 255;
-    (void)get_optional_int(root, "pin", &pin);
-    (void)get_optional_int(root, "brightness", &brightness);
-
     if (brightness < 0 || brightness > 255) {
         snprintf(output, output_size, "Error: brightness must be between 0 and 255");
-        cJSON_Delete(root);
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -339,9 +236,9 @@ esp_err_t tool_gpio_read_execute(const char *input_json, char *output, size_t ou
         if (err == ESP_ERR_INVALID_ARG) {
             snprintf(output, output_size, "Error: GPIO %d is not a valid WS2812 output pin", pin);
         } else {
-            snprintf(output, output_size, "Error: failed to initialize WS2812 on GPIO %d (%s)", pin, esp_err_to_name(err));
+            snprintf(output, output_size, "Error: failed to initialize WS2812 on GPIO %d (%s)",
+                     pin, esp_err_to_name(err));
         }
-        cJSON_Delete(root);
         return err;
     }
 
@@ -360,56 +257,181 @@ esp_err_t tool_gpio_read_execute(const char *input_json, char *output, size_t ou
     }
 
     if (err == ESP_OK) {
-        snprintf(output, output_size,
-                 "OK: WS2812 on GPIO %d set to RGB(%u,%u,%u) brightness=%d",
-                 pin, (unsigned)clamp_u8(red), (unsigned)clamp_u8(green), (unsigned)clamp_u8(blue), brightness);
+        if (label && label[0] != '\0') {
+            snprintf(output, output_size,
+                     "OK: status light on GPIO %d set to %s (RGB=%u,%u,%u brightness=%d)",
+                     pin, label,
+                     (unsigned)clamp_u8(red), (unsigned)clamp_u8(green), (unsigned)clamp_u8(blue),
+                     brightness);
+        } else {
+            snprintf(output, output_size,
+                     "OK: WS2812 on GPIO %d set to RGB(%u,%u,%u) brightness=%d",
+                     pin,
+                     (unsigned)clamp_u8(red), (unsigned)clamp_u8(green), (unsigned)clamp_u8(blue),
+                     brightness);
+        }
     } else {
-        snprintf(output, output_size, "Error: failed to update WS2812 on GPIO %d (%s)", pin, esp_err_to_name(err));
+        snprintf(output, output_size, "Error: failed to update WS2812 on GPIO %d (%s)",
+                 pin, esp_err_to_name(err));
     }
 
-    ESP_LOGI(TAG, "ws2812_set pin=%d rgb=(%d,%d,%d) brightness=%d -> %s",
+    ESP_LOGI(TAG, "ws2812 pin=%d rgb=(%d,%d,%d) brightness=%d -> %s",
              pin, red, green, blue, brightness, esp_err_to_name(err));
-    cJSON_Delete(root);
     return err;
-=======
-    int pin = (int)pin_obj->valuedouble;
+}
 
-    if (!gpio_policy_pin_is_allowed(pin)) {
-        if (gpio_policy_pin_forbidden_hint(pin, output, output_size)) {
-            cJSON_Delete(root);
-            return ESP_ERR_INVALID_ARG;
-        }
-        if (MIMI_GPIO_ALLOWED_CSV[0] != '\0') {
-            snprintf(output, output_size, "Error: pin %d is not in allowed list", pin);
-        } else {
-            snprintf(output, output_size, "Error: pin must be %d-%d",
-                     MIMI_GPIO_MIN_PIN, MIMI_GPIO_MAX_PIN);
-        }
+static bool resolve_named_color(const char *color, int *r, int *g, int *b)
+{
+    if (!color) {
+        return false;
+    }
+
+    if (strcasecmp(color, "off") == 0 || strcmp(color, "关闭") == 0 || strcmp(color, "熄灭") == 0) {
+        *r = 0; *g = 0; *b = 0;
+        return true;
+    }
+    if (strcasecmp(color, "red") == 0 || strcmp(color, "红") == 0 || strcmp(color, "红色") == 0) {
+        *r = 255; *g = 0; *b = 0;
+        return true;
+    }
+    if (strcasecmp(color, "green") == 0 || strcmp(color, "绿") == 0 || strcmp(color, "绿色") == 0) {
+        *r = 0; *g = 255; *b = 0;
+        return true;
+    }
+    if (strcasecmp(color, "blue") == 0 || strcmp(color, "蓝") == 0 || strcmp(color, "蓝色") == 0) {
+        *r = 0; *g = 0; *b = 255;
+        return true;
+    }
+    if (strcasecmp(color, "white") == 0 || strcmp(color, "白") == 0 || strcmp(color, "白色") == 0) {
+        *r = 255; *g = 255; *b = 255;
+        return true;
+    }
+    if (strcasecmp(color, "yellow") == 0 || strcmp(color, "黄") == 0 || strcmp(color, "黄色") == 0) {
+        *r = 255; *g = 180; *b = 0;
+        return true;
+    }
+    if (strcasecmp(color, "orange") == 0 || strcmp(color, "橙") == 0 || strcmp(color, "橙色") == 0) {
+        *r = 255; *g = 96; *b = 0;
+        return true;
+    }
+    if (strcasecmp(color, "purple") == 0 || strcasecmp(color, "magenta") == 0 ||
+        strcmp(color, "紫") == 0 || strcmp(color, "紫色") == 0) {
+        *r = 180; *g = 0; *b = 255;
+        return true;
+    }
+    if (strcasecmp(color, "cyan") == 0 || strcmp(color, "青") == 0 || strcmp(color, "青色") == 0) {
+        *r = 0; *g = 180; *b = 255;
+        return true;
+    }
+
+    return false;
+}
+
+esp_err_t tool_gpio_init(void)
+{
+    ESP_LOGI(TAG, "GPIO tools ready (default WS2812 GPIO=%d)", MIMI_WS2812_DEFAULT_GPIO);
+    return ESP_OK;
+}
+
+esp_err_t tool_gpio_write_execute(const char *input_json, char *output, size_t output_size)
+{
+    cJSON *root = cJSON_Parse(input_json);
+    if (!root) {
+        snprintf(output, output_size, "Error: invalid JSON input");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int pin = -1;
+    int state = -1;
+    if (!get_required_int(root, "pin", &pin)) {
+        snprintf(output, output_size, "Error: 'pin' required (integer)");
+        cJSON_Delete(root);
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!get_optional_int(root, "state", &state) && !get_optional_int(root, "level", &state)) {
+        snprintf(output, output_size, "Error: 'state' required (0 or 1)");
+        cJSON_Delete(root);
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (state != 0 && state != 1) {
+        snprintf(output, output_size, "Error: state must be 0 or 1");
         cJSON_Delete(root);
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Enable input path, then read level */
-    gpio_set_direction(pin, GPIO_MODE_INPUT);
-    int level = gpio_get_level(pin);
+    esp_err_t err = validate_allowed_gpio(pin, output, output_size);
+    if (err != ESP_OK) {
+        cJSON_Delete(root);
+        return err;
+    }
 
-    snprintf(output, output_size, "Pin %d = %s", pin, level ? "HIGH" : "LOW");
-    ESP_LOGI(TAG, "gpio_read: pin %d = %s", pin, level ? "HIGH" : "LOW");
+    err = ensure_output_gpio(pin);
+    if (err == ESP_OK) {
+        err = gpio_set_level(pin, state);
+    }
 
+    if (err == ESP_OK) {
+        snprintf(output, output_size, "OK: GPIO %d set %s", pin, state ? "HIGH" : "LOW");
+    } else if (err == ESP_ERR_INVALID_ARG) {
+        snprintf(output, output_size, "Error: GPIO %d is not a valid output pin", pin);
+    } else {
+        snprintf(output, output_size, "Error: failed to set GPIO %d (%s)", pin, esp_err_to_name(err));
+    }
+
+    ESP_LOGI(TAG, "gpio_write pin=%d state=%d -> %s", pin, state, esp_err_to_name(err));
+    cJSON_Delete(root);
+    return err;
+}
+
+esp_err_t tool_gpio_read_execute(const char *input_json, char *output, size_t output_size)
+{
+    cJSON *root = cJSON_Parse(input_json);
+    if (!root) {
+        snprintf(output, output_size, "Error: invalid JSON input");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int pin = -1;
+    if (!get_required_int(root, "pin", &pin)) {
+        snprintf(output, output_size, "Error: 'pin' required (integer)");
+        cJSON_Delete(root);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = validate_allowed_gpio(pin, output, output_size);
+    if (err != ESP_OK) {
+        cJSON_Delete(root);
+        return err;
+    }
+
+    gpio_config_t cfg = {
+        .pin_bit_mask = 1ULL << pin,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    err = gpio_config(&cfg);
+    if (err != ESP_OK) {
+        snprintf(output, output_size, "Error: failed to read GPIO %d (%s)", pin, esp_err_to_name(err));
+        cJSON_Delete(root);
+        return err;
+    }
+
+    snprintf(output, output_size, "OK: GPIO %d is %s", pin, gpio_get_level(pin) ? "HIGH" : "LOW");
+    ESP_LOGI(TAG, "gpio_read pin=%d", pin);
     cJSON_Delete(root);
     return ESP_OK;
 }
 
 esp_err_t tool_gpio_read_all_execute(const char *input_json, char *output, size_t output_size)
 {
-    (void)input_json;
+    cJSON *root = cJSON_Parse(input_json ? input_json : "{}");
+    cJSON_Delete(root);
 
     char *cursor = output;
     size_t remaining = output_size;
-    int written;
-    int count = 0;
-
-    written = snprintf(cursor, remaining, "GPIO states: ");
+    int written = snprintf(cursor, remaining, "GPIO states: ");
     if (written < 0 || (size_t)written >= remaining) {
         output[0] = '\0';
         return ESP_FAIL;
@@ -417,8 +439,8 @@ esp_err_t tool_gpio_read_all_execute(const char *input_json, char *output, size_
     cursor += (size_t)written;
     remaining -= (size_t)written;
 
+    int count = 0;
     if (MIMI_GPIO_ALLOWED_CSV[0] != '\0') {
-        /* Iterate over explicit allowlist */
         const char *csv_cursor = MIMI_GPIO_ALLOWED_CSV;
         while (*csv_cursor != '\0') {
             char *endptr = NULL;
@@ -427,42 +449,66 @@ esp_err_t tool_gpio_read_all_execute(const char *input_json, char *output, size_
             while (*csv_cursor == ' ' || *csv_cursor == '\t' || *csv_cursor == ',') {
                 csv_cursor++;
             }
-            if (*csv_cursor == '\0') break;
+            if (*csv_cursor == '\0') {
+                break;
+            }
 
             value = strtol(csv_cursor, &endptr, 10);
             if (endptr == csv_cursor) {
-                while (*csv_cursor != '\0' && *csv_cursor != ',') csv_cursor++;
-                continue;
-            }
-            if (!gpio_policy_pin_is_allowed((int)value)) {
-                csv_cursor = endptr;
+                while (*csv_cursor != '\0' && *csv_cursor != ',') {
+                    csv_cursor++;
+                }
                 continue;
             }
 
-            gpio_set_direction((int)value, GPIO_MODE_INPUT);
-            int level = gpio_get_level((int)value);
+            if (gpio_policy_pin_is_allowed((int)value)) {
+                gpio_config_t cfg = {
+                    .pin_bit_mask = 1ULL << (int)value,
+                    .mode = GPIO_MODE_INPUT,
+                    .pull_up_en = GPIO_PULLUP_DISABLE,
+                    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+                    .intr_type = GPIO_INTR_DISABLE,
+                };
+                if (gpio_config(&cfg) == ESP_OK) {
+                    written = snprintf(cursor, remaining, "%s%d=%s",
+                                       count == 0 ? "" : ", ",
+                                       (int)value,
+                                       gpio_get_level((int)value) ? "HIGH" : "LOW");
+                    if (written < 0 || (size_t)written >= remaining) {
+                        break;
+                    }
+                    cursor += (size_t)written;
+                    remaining -= (size_t)written;
+                    count++;
+                }
+            }
 
-            written = snprintf(cursor, remaining, "%s%d=%s",
-                               count == 0 ? "" : ", ",
-                               (int)value, level ? "HIGH" : "LOW");
-            if (written < 0 || (size_t)written >= remaining) break;
-            cursor += (size_t)written;
-            remaining -= (size_t)written;
-            count++;
             csv_cursor = endptr;
         }
     } else {
-        /* Iterate over default range */
         for (int pin = MIMI_GPIO_MIN_PIN; pin <= MIMI_GPIO_MAX_PIN; pin++) {
-            if (!gpio_policy_pin_is_allowed(pin)) continue;
+            if (!gpio_policy_pin_is_allowed(pin)) {
+                continue;
+            }
 
-            gpio_set_direction(pin, GPIO_MODE_INPUT);
-            int level = gpio_get_level(pin);
+            gpio_config_t cfg = {
+                .pin_bit_mask = 1ULL << pin,
+                .mode = GPIO_MODE_INPUT,
+                .pull_up_en = GPIO_PULLUP_DISABLE,
+                .pull_down_en = GPIO_PULLDOWN_DISABLE,
+                .intr_type = GPIO_INTR_DISABLE,
+            };
+            if (gpio_config(&cfg) != ESP_OK) {
+                continue;
+            }
 
             written = snprintf(cursor, remaining, "%s%d=%s",
                                count == 0 ? "" : ", ",
-                               pin, level ? "HIGH" : "LOW");
-            if (written < 0 || (size_t)written >= remaining) break;
+                               pin,
+                               gpio_get_level(pin) ? "HIGH" : "LOW");
+            if (written < 0 || (size_t)written >= remaining) {
+                break;
+            }
             cursor += (size_t)written;
             remaining -= (size_t)written;
             count++;
@@ -474,7 +520,72 @@ esp_err_t tool_gpio_read_all_execute(const char *input_json, char *output, size_
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "gpio_read_all: %d pins read", count);
+    ESP_LOGI(TAG, "gpio_read_all count=%d", count);
     return ESP_OK;
->>>>>>> bb10ea0149080d506d920c09054f4c5b20409de2
+}
+
+esp_err_t tool_ws2812_set_execute(const char *input_json, char *output, size_t output_size)
+{
+    cJSON *root = cJSON_Parse(input_json);
+    if (!root) {
+        snprintf(output, output_size, "Error: invalid JSON input");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int red = -1;
+    int green = -1;
+    int blue = -1;
+    if (!get_required_int(root, "r", &red) ||
+        !get_required_int(root, "g", &green) ||
+        !get_required_int(root, "b", &blue)) {
+        snprintf(output, output_size, "Error: missing required numeric fields 'r', 'g', and 'b'");
+        cJSON_Delete(root);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int pin = MIMI_WS2812_DEFAULT_GPIO;
+    int brightness = 255;
+    (void)get_optional_int(root, "pin", &pin);
+    (void)get_optional_int(root, "brightness", &brightness);
+
+    esp_err_t err = ws2812_apply_color(pin, red, green, blue, brightness, output, output_size, NULL);
+    cJSON_Delete(root);
+    return err;
+}
+
+esp_err_t tool_set_status_light_execute(const char *input_json, char *output, size_t output_size)
+{
+    cJSON *root = cJSON_Parse(input_json);
+    if (!root) {
+        snprintf(output, output_size, "Error: invalid JSON input");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int pin = MIMI_WS2812_DEFAULT_GPIO;
+    int brightness = 255;
+    int red = -1;
+    int green = -1;
+    int blue = -1;
+    const char *color = get_optional_string(root, "color");
+
+    (void)get_optional_int(root, "pin", &pin);
+    (void)get_optional_int(root, "brightness", &brightness);
+
+    bool has_rgb = get_optional_int(root, "r", &red) &&
+                   get_optional_int(root, "g", &green) &&
+                   get_optional_int(root, "b", &blue);
+
+    if (!has_rgb) {
+        if (!resolve_named_color(color, &red, &green, &blue)) {
+            snprintf(output, output_size,
+                     "Error: provide either color ('red', 'green', 'blue', 'white', 'yellow', 'orange', 'purple', 'cyan', 'off') or numeric r/g/b");
+            cJSON_Delete(root);
+            return ESP_ERR_INVALID_ARG;
+        }
+    }
+
+    esp_err_t err = ws2812_apply_color(pin, red, green, blue, brightness, output, output_size,
+                                       color && color[0] != '\0' ? color : "custom");
+    cJSON_Delete(root);
+    return err;
 }

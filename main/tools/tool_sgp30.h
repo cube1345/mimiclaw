@@ -20,3 +20,6 @@
  * @retval 其他 ESP-IDF 错误码 I2C 总线创建、探测或传输失败。
  */
 esp_err_t tool_sgp30_read_air_quality_execute(const char *input_json, char *output, size_t output_size);
+
+/* Start periodic SGP30 polling to print readings on the serial monitor. */
+esp_err_t tool_sgp30_monitor_start(void);

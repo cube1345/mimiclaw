@@ -95,24 +95,24 @@ esp_err_t wifi_manager_start(void)
     wifi_config_t wifi_cfg = {0};
     bool found = false;
 
-    /* NVS overrides take highest priority (set via CLI) */
-    nvs_handle_t nvs;
-    if (nvs_open(MIMI_NVS_WIFI, NVS_READONLY, &nvs) == ESP_OK) {
-        size_t len = sizeof(wifi_cfg.sta.ssid);
-        if (nvs_get_str(nvs, MIMI_NVS_KEY_SSID, (char *)wifi_cfg.sta.ssid, &len) == ESP_OK) {
-            len = sizeof(wifi_cfg.sta.password);
-            nvs_get_str(nvs, MIMI_NVS_KEY_PASS, (char *)wifi_cfg.sta.password, &len);
-            found = true;
-        }
-        nvs_close(nvs);
+    /* Prefer build-time secrets when provided so fresh firmware behaves predictably. */
+    if (MIMI_SECRET_WIFI_SSID[0] != '\0') {
+        strncpy((char *)wifi_cfg.sta.ssid, MIMI_SECRET_WIFI_SSID, sizeof(wifi_cfg.sta.ssid) - 1);
+        strncpy((char *)wifi_cfg.sta.password, MIMI_SECRET_WIFI_PASS, sizeof(wifi_cfg.sta.password) - 1);
+        found = true;
     }
 
-    /* Fall back to build-time secrets */
+    /* Fall back to NVS credentials saved by CLI/onboarding. */
     if (!found) {
-        if (MIMI_SECRET_WIFI_SSID[0] != '\0') {
-            strncpy((char *)wifi_cfg.sta.ssid, MIMI_SECRET_WIFI_SSID, sizeof(wifi_cfg.sta.ssid) - 1);
-            strncpy((char *)wifi_cfg.sta.password, MIMI_SECRET_WIFI_PASS, sizeof(wifi_cfg.sta.password) - 1);
-            found = true;
+        nvs_handle_t nvs;
+        if (nvs_open(MIMI_NVS_WIFI, NVS_READONLY, &nvs) == ESP_OK) {
+            size_t len = sizeof(wifi_cfg.sta.ssid);
+            if (nvs_get_str(nvs, MIMI_NVS_KEY_SSID, (char *)wifi_cfg.sta.ssid, &len) == ESP_OK) {
+                len = sizeof(wifi_cfg.sta.password);
+                nvs_get_str(nvs, MIMI_NVS_KEY_PASS, (char *)wifi_cfg.sta.password, &len);
+                found = true;
+            }
+            nvs_close(nvs);
         }
     }
 
@@ -222,6 +222,7 @@ void wifi_manager_scan_and_print(void)
         esp_wifi_connect();
         return;
     }
+    
 
     ESP_LOGI(TAG, "Found %u APs:", ap_max);
     for (uint16_t i = 0; i < ap_max; i++) {
@@ -270,4 +271,14 @@ void wifi_manager_set_reconnect_enabled(bool enabled)
     if (!enabled) {
         s_retry_count = 0;
     }
+}
+
+/*
+ * Compatibility shim for builds that link WPA supplicant code expecting this
+ * helper while the linked Wi-Fi library does not export it.
+ */
+uint8_t *esp_wifi_sta_get_rsnxe(uint8_t *bssid)
+{
+    (void)bssid;
+    return NULL;
 }

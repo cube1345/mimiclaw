@@ -22,6 +22,7 @@
 #include "cli/serial_cli.h"
 #include "proxy/http_proxy.h"
 #include "tools/tool_registry.h"
+#include "tools/tool_sgp30.h"
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
@@ -139,6 +140,10 @@ void app_main(void)
 
     /* Start Serial CLI first (works without WiFi) */
     ESP_ERROR_CHECK(serial_cli_init());
+
+    if (tool_sgp30_monitor_start() != ESP_OK) {
+        ESP_LOGW(TAG, "SGP30 auto monitor unavailable");
+    }
 
     /* Start WiFi */
     esp_err_t wifi_err = wifi_manager_start();

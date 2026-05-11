@@ -1,0 +1,19 @@
+Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/home/cube/.espressif/python_env/idf5.5_py3.10_env/bin/python -DESP_PLATFORM=1 -DIDF_TARGET=esp32s3 -DCCACHE_ENABLE=0 /home/cube/WorkSpace/ESP/mimiclaw
+Submodule 'components/bootloader/subproject/components/micro-ecc/micro-ecc' (/home/cube/WorkSpace/kmackay/micro-ecc.git) registered for path 'components/bootloader/subproject/components/micro-ecc/micro-ecc'
+fatal: repository '/home/cube/WorkSpace/kmackay/micro-ecc.git' does not exist
+fatal: clone of '/home/cube/WorkSpace/kmackay/micro-ecc.git' into submodule path '/tmp/esp-idf-v5.5.4-worktree/components/bootloader/subproject/components/micro-ecc/micro-ecc' failed
+Failed to clone 'components/bootloader/subproject/components/micro-ecc/micro-ecc'. Retry scheduled
+fatal: repository '/home/cube/WorkSpace/kmackay/micro-ecc.git' does not exist
+fatal: clone of '/home/cube/WorkSpace/kmackay/micro-ecc.git' into submodule path '/tmp/esp-idf-v5.5.4-worktree/components/bootloader/subproject/components/micro-ecc/micro-ecc' failed
+Failed to clone 'components/bootloader/subproject/components/micro-ecc/micro-ecc' a second time, aborting
+CMake Error at /tmp/esp-idf-v5.5.4-worktree/tools/cmake/git_submodules.cmake:48 (message):
+  Git submodule init failed for
+  components/bootloader/subproject/components/micro-ecc/micro-ecc
+Call Stack (most recent call first):
+  /tmp/esp-idf-v5.5.4-worktree/tools/cmake/build.cmake:109 (git_submodule_check)
+  /tmp/esp-idf-v5.5.4-worktree/tools/cmake/build.cmake:284 (__build_get_idf_git_revision)
+  /tmp/esp-idf-v5.5.4-worktree/tools/cmake/idf.cmake:55 (__build_init)
+  /tmp/esp-idf-v5.5.4-worktree/tools/cmake/project.cmake:29 (include)
+  CMakeLists.txt:5 (include)
+
+

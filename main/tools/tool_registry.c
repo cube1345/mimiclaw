@@ -5,6 +5,8 @@
 #include "tools/tool_files.h"
 #include "tools/tool_get_time.h"
 #include "tools/tool_gpio.h"
+#include "tools/tool_dht11.h"
+#include "tools/tool_servo.h"
 #include "tools/tool_sgp30.h"
 #include "tools/tool_web_search.h"
 
@@ -79,6 +81,14 @@ esp_err_t tool_registry_init(void)
         .input_schema_json =
             "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
         .execute = tool_get_time_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "read_temperature_humidity",
+        .description = "Read temperature and humidity from a DHT11 sensor. Use this when the user asks about temperature, humidity, or DHT11 readings. The data pin is fixed to GPIO3.",
+        .input_schema_json =
+            "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
+        .execute = tool_read_temperature_humidity_execute,
     });
 
     register_tool(&(mimi_tool_t){
@@ -180,6 +190,18 @@ esp_err_t tool_registry_init(void)
             "\"b\":{\"type\":\"integer\",\"description\":\"Optional blue value 0-255 when using explicit RGB\"}},"
             "\"required\":[]}",
         .execute = tool_set_status_light_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "servo_write",
+        .description = "Control the servo motor on GPIO5. Set the angle in degrees (0-180) or pulse width in microseconds. For requests like opening, starting, or testing the servo without a specific angle, prefer angle=90 to produce a visible motion. GPIO5 is the only pin supported.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"angle\":{\"type\":\"integer\",\"description\":\"Target angle 0-180 degrees\"},"
+            "\"pulse_us\":{\"type\":\"integer\",\"description\":\"Pulse width in microseconds (typically 500-2500 for standard servos)\"}},"
+            "\"required\":[]}",
+        .execute = tool_servo_write_execute,
     });
 
     register_tool(&(mimi_tool_t){

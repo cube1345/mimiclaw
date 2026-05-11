@@ -61,6 +61,12 @@
 #ifndef MIMI_SECRET_SGP30_SCL_HZ
 #define MIMI_SECRET_SGP30_SCL_HZ    100000
 #endif
+#ifndef MIMI_SECRET_SERVO_GPIO
+#define MIMI_SECRET_SERVO_GPIO      5
+#endif
+#ifndef MIMI_SECRET_DHT11_GPIO
+#define MIMI_SECRET_DHT11_GPIO      3
+#endif
 
 /* WiFi */
 #define MIMI_WIFI_MAX_RETRY          10
@@ -149,6 +155,15 @@
 #define MIMI_SGP30_MONITOR_CORE      0
 #define MIMI_SGP30_MONITOR_INTERVAL_MS 1000
 #define MIMI_SGP30_MONITOR_RETRY_MS    5000
+
+/* Servo */
+#define MIMI_SERVO_DEFAULT_GPIO     MIMI_SECRET_SERVO_GPIO
+#define MIMI_SERVO_MIN_PULSE_US      500
+#define MIMI_SERVO_MAX_PULSE_US      2500
+#define MIMI_SERVO_FREQ_HZ           50
+
+/* DHT11 temperature/humidity sensor */
+#define MIMI_DHT11_DEFAULT_GPIO      MIMI_SECRET_DHT11_GPIO
 
 /* WebSocket Gateway */
 #define MIMI_WS_PORT                 18789

@@ -11,8 +11,6 @@
 static const char *TAG = "tool_sgp30";
 
 static sgp30_dev_t s_sgp30;
-static bool s_monitor_started = false;
-
 /**
  * @brief 从工具输入 JSON 中读取一个可选的整数参数。
  *
@@ -33,31 +31,7 @@ static bool get_optional_int(cJSON *root, const char *key, int *value)
     return true;
 }
 
-static void sgp30_monitor_task(void *arg)
-{
-    char output[192];
 
-    while (1) {
-        esp_err_t err = tool_sgp30_read_air_quality_execute("{}", output, sizeof(output));
-        if (err == ESP_OK) {
-            ESP_LOGI(TAG, "AUTO: %s", output);
-            vTaskDelay(pdMS_TO_TICKS(MIMI_SGP30_MONITOR_INTERVAL_MS));
-        } else {
-            ESP_LOGW(TAG, "AUTO: %s", output);
-            vTaskDelay(pdMS_TO_TICKS(MIMI_SGP30_MONITOR_RETRY_MS));
-        }
-    }
-}
-
-/**
- * @brief 计算 SGP30 单个 2 字节数据字对应的 CRC 校验值。
- *
- * SGP30 使用 CRC-8，生成多项式为 `0x31`，初始值为 `0xFF`。
- *
- * @param data 指向恰好 2 个数据字节的指针。
- *
- * @return 对应这 2 个字节计算得到的 CRC 值。
- */
 /**
  * @brief 执行 MimiClaw 的 SGP30 空气质量读取工具。
  *
@@ -161,31 +135,6 @@ esp_err_t tool_sgp30_read_air_quality_execute(const char *input_json, char *outp
 
 esp_err_t tool_sgp30_monitor_start(void)
 {
-    if (s_monitor_started) {
-        return ESP_OK;
-    }
-
-    if (!sgp30_valid_gpio_pair(MIMI_SGP30_DEFAULT_SDA_GPIO, MIMI_SGP30_DEFAULT_SCL_GPIO)) {
-        ESP_LOGW(TAG, "SGP30 auto monitor disabled: invalid default SDA/SCL pins (%d/%d)",
-                 MIMI_SGP30_DEFAULT_SDA_GPIO, MIMI_SGP30_DEFAULT_SCL_GPIO);
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    BaseType_t ok = xTaskCreatePinnedToCore(
-        sgp30_monitor_task,
-        "sgp30_mon",
-        MIMI_SGP30_MONITOR_STACK,
-        NULL,
-        MIMI_SGP30_MONITOR_PRIO,
-        NULL,
-        MIMI_SGP30_MONITOR_CORE);
-    if (ok != pdPASS) {
-        return ESP_FAIL;
-    }
-
-    s_monitor_started = true;
-    ESP_LOGI(TAG, "SGP30 auto monitor started on SDA=%d SCL=%d port=%d freq=%d",
-             MIMI_SGP30_DEFAULT_SDA_GPIO, MIMI_SGP30_DEFAULT_SCL_GPIO,
-             MIMI_SGP30_DEFAULT_I2C_PORT, MIMI_SGP30_DEFAULT_SCL_HZ);
+    /* Auto-monitor removed: SGP30 is read on-demand via agent tools only. */
     return ESP_OK;
 }

@@ -31,22 +31,32 @@
 static const char *TAG = "cli";
 
 /* --- wifi_set command --- */
-static struct {
-    struct arg_str *ssid;
-    struct arg_str *password;
-    struct arg_end *end;
-} wifi_set_args;
-
 static int cmd_wifi_set(int argc, char **argv)
 {
-    int nerrors = arg_parse(argc, argv, (void **)&wifi_set_args);
-    if (nerrors != 0) {
-        arg_print_errors(stderr, wifi_set_args.end, argv[0]);
+    if (argc < 3) {
+        printf("Usage: set_wifi <ssid> <password>\n");
+        printf("  SSID may contain spaces, the last argument is the password.\n");
         return 1;
     }
-    wifi_manager_set_credentials(wifi_set_args.ssid->sval[0],
-                                  wifi_set_args.password->sval[0]);
-    printf("WiFi credentials saved. Restart to apply.\n");
+
+    /* SSID is argv[1..argc-2] joined by spaces, password is argv[argc-1] */
+    char ssid[33] = {0};
+    size_t pos = 0;
+    for (int i = 1; i < argc - 1; i++) {
+        if (pos > 0 && pos < sizeof(ssid) - 1) {
+            ssid[pos++] = ' ';
+        }
+        size_t remain = sizeof(ssid) - pos - 1;
+        size_t copy = strnlen(argv[i], remain);
+        memcpy(ssid + pos, argv[i], copy);
+        pos += copy;
+        if (pos >= sizeof(ssid) - 1) break;
+    }
+    ssid[sizeof(ssid) - 1] = '\0';
+
+    wifi_manager_set_credentials(ssid, argv[argc - 1]);
+    printf("WiFi credentials saved to SSID: %s\n", ssid);
+    printf("Restart to apply.\n");
     return 0;
 }
 
@@ -802,14 +812,10 @@ esp_err_t serial_cli_init(void)
     esp_console_register_help_command();
 
     /* set_wifi */
-    wifi_set_args.ssid = arg_str1(NULL, NULL, "<ssid>", "WiFi SSID");
-    wifi_set_args.password = arg_str1(NULL, NULL, "<password>", "WiFi password");
-    wifi_set_args.end = arg_end(2);
     esp_console_cmd_t wifi_set_cmd = {
         .command = "set_wifi",
-        .help = "Set WiFi SSID and password (e.g. set_wifi MySSID MyPass)",
+        .help = "Set WiFi SSID and password. SSID may contain spaces, last argument is password.",
         .func = &cmd_wifi_set,
-        .argtable = &wifi_set_args,
     };
     esp_console_cmd_register(&wifi_set_cmd);
 

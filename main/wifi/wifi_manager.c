@@ -3,11 +3,13 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <stdint.h>
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "freertos/task.h"
 
 static const char *TAG = "wifi";
 
@@ -16,13 +18,13 @@ static int s_retry_count = 0;
 static char s_ip_str[16] = "0.0.0.0";
 static bool s_connected = false;
 static bool s_reconnect_enabled = true;
+static TaskHandle_t s_reconnect_task = NULL;
 
 static const char *wifi_reason_to_str(wifi_err_reason_t reason)
 {
     switch (reason) {
     case WIFI_REASON_AUTH_EXPIRE: return "AUTH_EXPIRE";
     case WIFI_REASON_AUTH_FAIL: return "AUTH_FAIL";
-    case WIFI_REASON_ASSOC_EXPIRE: return "ASSOC_EXPIRE";
     case WIFI_REASON_ASSOC_FAIL: return "ASSOC_FAIL";
     case WIFI_REASON_HANDSHAKE_TIMEOUT: return "HANDSHAKE_TIMEOUT";
     case WIFI_REASON_NO_AP_FOUND: return "NO_AP_FOUND";
@@ -32,6 +34,21 @@ static const char *wifi_reason_to_str(wifi_err_reason_t reason)
     case WIFI_REASON_CONNECTION_FAIL: return "CONNECTION_FAIL";
     default: return "UNKNOWN";
     }
+}
+
+static void reconnect_task(void *arg)
+{
+    uint32_t delay_ms = (uint32_t)(uintptr_t)arg;
+
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
+
+    if (s_reconnect_enabled && !s_connected && s_retry_count < MIMI_WIFI_MAX_RETRY) {
+        ESP_LOGW(TAG, "Retrying WiFi connection");
+        esp_wifi_connect();
+    }
+
+    s_reconnect_task = NULL;
+    vTaskDelete(NULL);
 }
 
 static void event_handler(void *arg, esp_event_base_t event_base,
@@ -53,9 +70,15 @@ static void event_handler(void *arg, esp_event_base_t event_base,
             }
             ESP_LOGW(TAG, "Disconnected, retry %d/%d in %" PRIu32 "ms",
                      s_retry_count + 1, MIMI_WIFI_MAX_RETRY, delay_ms);
-            vTaskDelay(pdMS_TO_TICKS(delay_ms));
-            esp_wifi_connect();
             s_retry_count++;
+            if (!s_reconnect_task) {
+                if (xTaskCreate(reconnect_task, "wifi_reconn", 3072,
+                                (void *)(uintptr_t)delay_ms, 5, &s_reconnect_task) != pdPASS) {
+                    ESP_LOGE(TAG, "Failed to create reconnect task");
+                    s_reconnect_task = NULL;
+                    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+                }
+            }
         } else {
             ESP_LOGE(TAG, "Failed to connect after %d retries", MIMI_WIFI_MAX_RETRY);
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
@@ -66,6 +89,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "Connected! IP: %s", s_ip_str);
         s_retry_count = 0;
         s_connected = true;
+        s_reconnect_task = NULL;
 
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -95,15 +119,8 @@ esp_err_t wifi_manager_start(void)
     wifi_config_t wifi_cfg = {0};
     bool found = false;
 
-    /* Prefer build-time secrets when provided so fresh firmware behaves predictably. */
-    if (MIMI_SECRET_WIFI_SSID[0] != '\0') {
-        strncpy((char *)wifi_cfg.sta.ssid, MIMI_SECRET_WIFI_SSID, sizeof(wifi_cfg.sta.ssid) - 1);
-        strncpy((char *)wifi_cfg.sta.password, MIMI_SECRET_WIFI_PASS, sizeof(wifi_cfg.sta.password) - 1);
-        found = true;
-    }
-
-    /* Fall back to NVS credentials saved by CLI/onboarding. */
-    if (!found) {
+    /* Prefer NVS credentials saved by CLI/onboarding. */
+    {
         nvs_handle_t nvs;
         if (nvs_open(MIMI_NVS_WIFI, NVS_READONLY, &nvs) == ESP_OK) {
             size_t len = sizeof(wifi_cfg.sta.ssid);
@@ -116,12 +133,22 @@ esp_err_t wifi_manager_start(void)
         }
     }
 
+    /* Fall back to build-time secrets for first boot or recovery. */
+    if (!found && MIMI_SECRET_WIFI_SSID[0] != '\0') {
+        strncpy((char *)wifi_cfg.sta.ssid, MIMI_SECRET_WIFI_SSID, sizeof(wifi_cfg.sta.ssid) - 1);
+        strncpy((char *)wifi_cfg.sta.password, MIMI_SECRET_WIFI_PASS, sizeof(wifi_cfg.sta.password) - 1);
+        found = true;
+    }
+
     if (!found) {
         ESP_LOGW(TAG, "No WiFi credentials. Use CLI: wifi_set <SSID> <PASS>");
         return ESP_ERR_NOT_FOUND;
     }
 
     s_reconnect_enabled = true;
+    s_retry_count = 0;
+    s_connected = false;
+    xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
     ESP_LOGI(TAG, "Connecting to SSID: %s", wifi_cfg.sta.ssid);
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -256,6 +283,7 @@ bool wifi_manager_has_credentials(void)
 esp_err_t wifi_manager_stop(void)
 {
     s_reconnect_enabled = false;
+    s_reconnect_task = NULL;
     esp_wifi_disconnect();
     esp_wifi_stop();
     s_connected = false;

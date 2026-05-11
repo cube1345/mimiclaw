@@ -18,6 +18,161 @@ static const char *TAG = "agent";
 
 #define TOOL_OUTPUT_SIZE  (8 * 1024)
 
+static bool contains_substr_ci(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle || needle[0] == '\0') {
+        return false;
+    }
+
+    const size_t needle_len = strlen(needle);
+    for (const char *p = haystack; *p; p++) {
+        size_t i = 0;
+        while (i < needle_len && p[i]) {
+            unsigned char hc = (unsigned char)p[i];
+            unsigned char nc = (unsigned char)needle[i];
+
+            if (hc >= 'A' && hc <= 'Z') hc = (unsigned char)(hc - 'A' + 'a');
+            if (nc >= 'A' && nc <= 'Z') nc = (unsigned char)(nc - 'A' + 'a');
+            if (hc != nc) {
+                break;
+            }
+            i++;
+        }
+        if (i == needle_len) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool message_has_any_keyword(const char *message, const char *const *keywords, size_t keyword_count)
+{
+    if (!message || !keywords) {
+        return false;
+    }
+
+    for (size_t i = 0; i < keyword_count; i++) {
+        if (contains_substr_ci(message, keywords[i])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool tool_guard_match_light_request(const char *message)
+{
+    static const char *const keywords[] = {
+        "light", "led", "rgb", "ws2812", "neopixel", "status light", "board light",
+        "颜色", "灯", "灯光", "亮灯", "板载灯", "彩灯", "状态灯", "rgb灯", "ws2812",
+    };
+    return message_has_any_keyword(message, keywords, sizeof(keywords) / sizeof(keywords[0]));
+}
+
+static bool tool_guard_match_air_quality_request(const char *message)
+{
+    static const char *const topic_keywords[] = {
+        "air quality", "tvoc", "voc", "eco2", "co2", "sgp30", "indoor air", "gas sensor",
+        "空气质量", "空气传感器", "气体传感器", "气体数据", "voc", "tvoc", "eco2", "co2", "sgp30",
+    };
+    static const char *const intent_keywords[] = {
+        "read", "check", "measure", "detect", "show", "status", "how is", "what is",
+        "读取", "检测", "测量", "查看", "读一下", "怎么样", "多少", "数值", "状态",
+    };
+
+    if (contains_substr_ci(message, "sgp30")) {
+        return true;
+    }
+
+    return message_has_any_keyword(message, topic_keywords, sizeof(topic_keywords) / sizeof(topic_keywords[0])) &&
+           message_has_any_keyword(message, intent_keywords, sizeof(intent_keywords) / sizeof(intent_keywords[0]));
+}
+
+static bool tool_guard_match_gpio_write_request(const char *message)
+{
+    static const char *const keywords[] = {
+        "gpio", "pin", "io", "output", "relay", "mosfet", "high", "low", "pull high", "pull low",
+        "digital output", "引脚", "脚位", "io口", "输出", "继电器", "高电平", "低电平", "拉高", "拉低",
+    };
+    return message_has_any_keyword(message, keywords, sizeof(keywords) / sizeof(keywords[0]));
+}
+
+static bool tool_guard_match_gpio_read_request(const char *message)
+{
+    static const char *const keywords[] = {
+        "gpio", "pin", "io", "read pin", "button", "switch", "input", "state", "level",
+        "引脚", "脚位", "io口", "读取引脚", "按钮", "开关", "输入", "状态", "电平",
+    };
+    return message_has_any_keyword(message, keywords, sizeof(keywords) / sizeof(keywords[0]));
+}
+
+static bool tool_guard_match_cron_request(const char *message)
+{
+    static const char *const keywords[] = {
+        "cron", "schedule", "scheduled", "timer", "timed", "remind", "reminder", "every", "later",
+        "定时", "计划任务", "提醒", "定时任务", "稍后", "每隔", "到点",
+    };
+    return message_has_any_keyword(message, keywords, sizeof(keywords) / sizeof(keywords[0]));
+}
+
+static bool tool_guard_match_servo_request(const char *message)
+{
+    static const char *const keywords[] = {
+        "servo", "angle", "rotate", "rotation", "turn servo", "open servo", "start servo",
+        "move servo", "test servo", "steer", "steering", "pwm", "pulse width",
+        "舵机", "角度", "旋转", "转动", "顺时针", "逆时针", "脉宽",
+        "打开舵机", "开舵机", "启动舵机", "舵机打开", "舵机动一下", "让舵机动", "测试舵机",
+    };
+    return message_has_any_keyword(message, keywords, sizeof(keywords) / sizeof(keywords[0]));
+}
+
+static bool tool_guard_check(const llm_tool_call_t *call, const mimi_msg_t *msg,
+                             char *output, size_t output_size)
+{
+    if (!call || !msg || !msg->content || call->name[0] == '\0') {
+        return true;
+    }
+
+    const char *tool_name = call->name;
+    const char *message = msg->content;
+    bool allowed = true;
+    const char *expected = NULL;
+
+    if (strcmp(tool_name, "set_status_light") == 0 || strcmp(tool_name, "ws2812_set") == 0) {
+        allowed = tool_guard_match_light_request(message);
+        expected = "board light or LED control";
+    } else if (strcmp(tool_name, "servo_write") == 0) {
+        allowed = tool_guard_match_servo_request(message);
+        expected = "servo angle or servo pulse-width control";
+    } else if (strcmp(tool_name, "read_air_quality") == 0 || strcmp(tool_name, "sgp30_read_air_quality") == 0) {
+        allowed = tool_guard_match_air_quality_request(message);
+        expected = "air-quality or gas-sensor reading";
+    } else if (strcmp(tool_name, "gpio_write") == 0) {
+        allowed = tool_guard_match_gpio_write_request(message);
+        expected = "explicit GPIO or digital output control";
+    } else if (strcmp(tool_name, "gpio_read") == 0 || strcmp(tool_name, "gpio_read_all") == 0) {
+        allowed = tool_guard_match_gpio_read_request(message);
+        expected = "explicit GPIO, button, switch, or input-state reading";
+    } else if (strcmp(tool_name, "cron_add") == 0 || strcmp(tool_name, "cron_list") == 0 ||
+               strcmp(tool_name, "cron_remove") == 0) {
+        allowed = tool_guard_match_cron_request(message);
+        expected = "scheduling or reminder management";
+    }
+
+    if (allowed) {
+        return true;
+    }
+
+    snprintf(output, output_size,
+             "Guard blocked tool '%s': the user's request does not clearly ask for %s. "
+             "Do not substitute a nearby capability. Reply that this capability is not currently supported, "
+             "or ask a brief clarification question if the user intent is ambiguous.",
+             tool_name, expected ? expected : "this tool");
+    ESP_LOGW(TAG, "Tool guard blocked %s for message: %s", tool_name, message);
+    return false;
+}
+
 /* Build the assistant content array from llm_response_t for the messages history.
  * Returns a cJSON array with text and tool_use blocks. */
 static cJSON *build_assistant_content(const llm_response_t *resp)
@@ -150,12 +305,24 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
             tool_input = patched_input;
         }
 
-        /* Execute tool */
         tool_output[0] = '\0';
+        if (!tool_guard_check(call, msg, tool_output, tool_output_size)) {
+            free(patched_input);
+            ESP_LOGI(TAG, "=== CONV === Tool[%s] => %s", call->name, tool_output);
+
+            cJSON *result_block = cJSON_CreateObject();
+            cJSON_AddStringToObject(result_block, "type", "tool_result");
+            cJSON_AddStringToObject(result_block, "tool_use_id", call->id);
+            cJSON_AddStringToObject(result_block, "content", tool_output);
+            cJSON_AddItemToArray(content, result_block);
+            continue;
+        }
+
+        /* Execute tool */
         tool_registry_execute(call->name, tool_input, tool_output, tool_output_size);
         free(patched_input);
 
-        ESP_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
+        ESP_LOGI(TAG, "=== CONV === Tool[%s] => %s", call->name, tool_output);
 
         /* Build tool_result block */
         cJSON *result_block = cJSON_CreateObject();
@@ -191,6 +358,9 @@ static void agent_loop_task(void *arg)
         if (err != ESP_OK) continue;
 
         ESP_LOGI(TAG, "Processing message from %s:%s", msg.channel, msg.chat_id);
+        ESP_LOGI(TAG, "=== CONV ==================================================");
+        ESP_LOGI(TAG, "=== CONV === [%s/%s] >> USER: %s",
+                 msg.channel, msg.chat_id, msg.content);
 
         /* 1. Build system prompt */
         context_build_system_prompt(system_prompt, MIMI_CONTEXT_BUF_SIZE);
@@ -246,12 +416,18 @@ static void agent_loop_task(void *arg)
                 /* Normal completion — save final text and break */
                 if (resp.text && resp.text_len > 0) {
                     final_text = strdup(resp.text);
+                    ESP_LOGI(TAG, "=== CONV === << LLM: %.*s",
+                             (int)resp.text_len, resp.text);
                 }
                 llm_response_free(&resp);
                 break;
             }
 
             ESP_LOGI(TAG, "Tool use iteration %d: %d calls", iteration + 1, resp.call_count);
+            for (int ci = 0; ci < resp.call_count; ci++) {
+                ESP_LOGI(TAG, "=== CONV === << LLM tool[%d]: %s(%s)",
+                         ci, resp.calls[ci].name, resp.calls[ci].input ? resp.calls[ci].input : "{}");
+            }
 
             /* Append assistant message with content array */
             cJSON *asst_msg = cJSON_CreateObject();
@@ -293,6 +469,8 @@ static void agent_loop_task(void *arg)
             out.content = final_text;  /* transfer ownership */
             ESP_LOGI(TAG, "Queue final response to %s:%s (%d bytes)",
                      out.channel, out.chat_id, (int)strlen(final_text));
+            ESP_LOGI(TAG, "=== CONV === >> RESPONSE [%s/%s]: %s",
+                     out.channel, out.chat_id, out.content);
             if (message_bus_push_outbound(&out) != ESP_OK) {
                 ESP_LOGW(TAG, "Outbound queue full, drop final response");
                 free(final_text);

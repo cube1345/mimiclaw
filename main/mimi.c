@@ -23,12 +23,54 @@
 #include "proxy/http_proxy.h"
 #include "tools/tool_registry.h"
 #include "tools/tool_sgp30.h"
+#include "tools/tool_dht11.h"
+#include "tools/tool_servo.h"
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
 #include "onboard/wifi_onboard.h"
 
 static const char *TAG = "mimi";
+
+static void boot_servo_task(void *arg)
+{
+    (void)arg;
+
+    vTaskDelay(pdMS_TO_TICKS(1500));
+
+    ESP_LOGI(TAG, "Boot servo demo: moving servo on GPIO%d", MIMI_SERVO_DEFAULT_GPIO);
+    if (tool_servo_set_angle(90) != ESP_OK) {
+        ESP_LOGW(TAG, "Boot servo demo failed at 90 degrees");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(600));
+
+    if (tool_servo_set_angle(0) != ESP_OK) {
+        ESP_LOGW(TAG, "Boot servo demo failed at 0 degrees");
+    }
+
+    ESP_LOGI(TAG, "Boot servo demo complete");
+    vTaskDelete(NULL);
+}
+
+static void boot_dht11_task(void *arg)
+{
+    (void)arg;
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    char output[256] = {0};
+    ESP_LOGI(TAG, "Boot DHT11 demo: reading temperature and humidity on GPIO%d", MIMI_DHT11_DEFAULT_GPIO);
+    esp_err_t err = tool_read_temperature_humidity_execute("{}", output, sizeof(output));
+    ESP_LOGI(TAG, "Boot DHT11 demo result: %s", output);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Boot DHT11 demo failed: %s", esp_err_to_name(err));
+    }
+
+    vTaskDelete(NULL);
+}
 
 static esp_err_t init_nvs(void)
 {
@@ -141,6 +183,16 @@ void app_main(void)
     /* Start Serial CLI first (works without WiFi) */
     ESP_ERROR_CHECK(serial_cli_init());
 
+    ESP_ERROR_CHECK((xTaskCreatePinnedToCore(
+        boot_servo_task, "boot_servo",
+        3072, NULL, 4, NULL, 0) == pdPASS)
+        ? ESP_OK : ESP_FAIL);
+
+    ESP_ERROR_CHECK((xTaskCreatePinnedToCore(
+        boot_dht11_task, "boot_dht11",
+        4096, NULL, 4, NULL, 0) == pdPASS)
+        ? ESP_OK : ESP_FAIL);
+
     if (tool_sgp30_monitor_start() != ESP_OK) {
         ESP_LOGW(TAG, "SGP30 auto monitor unavailable");
     }
@@ -149,8 +201,6 @@ void app_main(void)
     esp_err_t wifi_err = wifi_manager_start();
     bool wifi_ok = false;
     if (wifi_err == ESP_OK) {
-        ESP_LOGI(TAG, "Scanning nearby APs on boot...");
-        wifi_manager_scan_and_print();
         ESP_LOGI(TAG, "Waiting for WiFi connection...");
         if (wifi_manager_wait_connected(30000) == ESP_OK) {
             wifi_ok = true;

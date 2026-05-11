@@ -1,69 +1,106 @@
 :root {
-  --bg: #f4f0e8;
-  --paper: #fffaf1;
-  --ink: #1e1c18;
-  --muted: #6b655b;
-  --line: #d8cfbf;
-  --accent: #0d6d62;
-  --accent-strong: #084d45;
-  --user: #e4f0ff;
-  --assistant: #f7e9c8;
-  --shadow: 0 20px 40px rgba(59, 43, 12, 0.12);
+  --ink: #1c1c1e;
+  --muted: #8e8e93;
+  --separator: rgba(60, 60, 67, 0.12);
+  --accent: #0a7cff;
+  --accent-strong: #0066d6;
+  --user-bg: rgba(10, 124, 255, 0.12);
+  --assistant-bg: rgba(255, 255, 255, 0.45);
+  --system-bg: rgba(120, 120, 128, 0.12);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.10);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100vh;
+  font-family: -apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at top left, rgba(13, 109, 98, 0.14), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(190, 120, 39, 0.18), transparent 28%),
-    var(--bg);
+    radial-gradient(ellipse at 20% 15%, #b8d4ff 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, #c8e6ff 0%, transparent 45%),
+    radial-gradient(ellipse at 60% 75%, #ffe7b8 0%, transparent 40%),
+    radial-gradient(ellipse at 25% 80%, #ffd4e0 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, #f0f4ff 0%, transparent 60%),
+    linear-gradient(135deg, #e8f0ff 0%, #f5f0ff 50%, #fff5e8 100%);
+  background-attachment: fixed;
 }
 
 .app {
   width: min(960px, calc(100vw - 32px));
-  margin: 32px auto 48px;
+  margin: 0 auto;
+  padding: 40px 0 60px;
+  position: relative;
 }
 
+/* ── Hero ── */
+
 .hero {
-  margin-bottom: 20px;
+  margin-bottom: 28px;
+  padding: 0 4px;
 }
 
 .eyebrow {
   margin: 0 0 8px;
   color: var(--accent);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(32px, 5vw, 52px);
-  line-height: 1.02;
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  background: linear-gradient(135deg, #1a1a2e 0%, #0a7cff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .lede {
-  max-width: 760px;
-  margin: 14px 0 0;
+  max-width: 680px;
+  margin: 16px 0 0;
   color: var(--muted);
   font-size: 16px;
   line-height: 1.7;
 }
 
-.panel {
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: rgba(255, 250, 241, 0.88);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow);
+/* ── Glass Panel ── */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(40px) saturate(140%);
+  -webkit-backdrop-filter: blur(40px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
 }
+
+.panel {
+  padding: 28px;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(40px) saturate(140%);
+  -webkit-backdrop-filter: blur(40px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Connection Grid ── */
 
 .conn-grid {
   display: grid;
@@ -79,23 +116,35 @@ body {
 
 .field span {
   font-size: 13px;
+  font-weight: 500;
   color: var(--muted);
+  padding-left: 2px;
 }
 
 input,
 textarea,
 button {
   font: inherit;
+  color: inherit;
 }
 
 input,
 textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fffdfa;
-  color: var(--ink);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(10, 124, 255, 0.15);
 }
 
 textarea {
@@ -103,113 +152,151 @@ textarea {
   min-height: 104px;
 }
 
-.toolbar,
-.composer-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
+/* ── Toolbar ── */
 
 .toolbar {
-  margin: 18px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 20px 0;
 }
+
+/* ── Buttons ── */
 
 button {
   border: 0;
   border-radius: 999px;
-  padding: 12px 18px;
+  padding: 10px 20px;
+  font-weight: 500;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.2s, box-shadow 0.2s;
+  user-select: none;
 }
 
 button:hover:enabled {
   transform: translateY(-1px);
 }
 
+button:active:enabled {
+  transform: translateY(0);
+}
+
 button:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .primary {
   background: var(--accent);
-  color: #f6fffd;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(10, 124, 255, 0.3);
 }
 
 .primary:hover:enabled {
   background: var(--accent-strong);
+  box-shadow: 0 4px 14px rgba(10, 124, 255, 0.35);
 }
 
 .ghost {
-  background: #efe6d5;
+  background: rgba(120, 120, 128, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--ink);
 }
+
+.ghost:hover:enabled {
+  background: rgba(120, 120, 128, 0.22);
+}
+
+/* ── Status Badge ── */
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 7px 14px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .badge::before {
   content: "";
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
 }
 
 .badge.offline {
-  color: #7d2d2d;
-  background: #f9dddd;
+  color: #bf3a2b;
+  background: rgba(191, 58, 43, 0.12);
 }
 
 .badge.connecting {
-  color: #8f5b12;
-  background: #fff0c8;
+  color: #b8860b;
+  background: rgba(184, 134, 11, 0.12);
 }
 
 .badge.online {
-  color: #146754;
-  background: #d8f3e6;
+  color: #248a3d;
+  background: rgba(36, 138, 61, 0.12);
 }
+
+/* ── Chat Log ── */
 
 .chat-log {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   min-height: 360px;
-  max-height: 60vh;
+  max-height: 55vh;
   overflow-y: auto;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.55);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
 
+.chat-log::-webkit-scrollbar {
+  width: 5px;
+}
+
+.chat-log::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 999px;
+}
+
+/* ── Messages ── */
+
 .msg {
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
 
 .msg.user {
   margin-left: 10%;
-  background: var(--user);
+  background: var(--user-bg);
 }
 
 .msg.assistant {
   margin-right: 10%;
-  background: var(--assistant);
+  background: var(--assistant-bg);
 }
 
 .msg.system {
-  background: #efe8dd;
+  background: var(--system-bg);
 }
 
 .msg-meta {
@@ -219,6 +306,7 @@ button:disabled {
   margin-bottom: 8px;
   color: var(--muted);
   font-size: 12px;
+  font-weight: 500;
 }
 
 .msg-body {
@@ -226,8 +314,14 @@ button:disabled {
   line-height: 1.65;
 }
 
+/* ── Composer ── */
+
 .composer {
-  margin-top: 18px;
+  margin-top: 20px;
+}
+
+.composer .field span {
+  display: none;
 }
 
 .grow {
@@ -235,19 +329,24 @@ button:disabled {
 }
 
 .composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-top: 14px;
   justify-content: flex-end;
 }
 
+/* ── Responsive ── */
+
 @media (max-width: 760px) {
   .app {
     width: min(100vw - 20px, 960px);
-    margin-top: 16px;
+    padding-top: 20px;
   }
 
   .panel {
-    padding: 18px;
-    border-radius: 18px;
+    padding: 20px;
+    border-radius: 20px;
   }
 
   .conn-grid {

@@ -1,5 +1,6 @@
 idf_component_register(
     SRCS
+        "cJSON_upstream.c"
         "mimi.c"
         "bus/message_bus.c"
         "wifi/wifi_manager.c"
@@ -22,6 +23,8 @@ idf_component_register(
         "tools/tool_files.c"
         "tools/gpio_policy.c"
         "tools/tool_gpio.c"
+        "tools/tool_servo.c"
+        "tools/tool_dht11.c"
         "tools/tool_sgp30.c"
         "drivers/sgp30.c"
         "skills/skill_loader.c"
@@ -30,6 +33,7 @@ idf_component_register(
         "."
     REQUIRES
         nvs_flash esp_wifi esp_netif esp_http_client esp_http_server
-        esp_https_ota esp_event json spiffs console vfs app_update esp-tls
+        esp_https_ota esp_event spiffs console vfs app_update esp-tls
         esp_timer esp_websocket_client esp_driver_gpio esp_driver_rmt esp_driver_i2c
+        esp_driver_ledc
 )

@@ -5,9 +5,11 @@
 #include "tools/tool_files.h"
 #include "tools/tool_get_time.h"
 #include "tools/tool_gpio.h"
-#include "tools/tool_dht11.h"
+#include "tools/tool_aht10.h"
+#include "tools/tool_hc_sr05.h"
 #include "tools/tool_servo.h"
 #include "tools/tool_sgp30.h"
+#include "tools/tool_bh1750.h"
 #include "tools/tool_web_search.h"
 
 #include <stdlib.h>
@@ -17,7 +19,7 @@
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 20
+#define MAX_TOOLS 24
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -85,10 +87,43 @@ esp_err_t tool_registry_init(void)
 
     register_tool(&(mimi_tool_t){
         .name = "read_temperature_humidity",
-        .description = "Read temperature and humidity from a DHT11 sensor. Use this when the user asks about temperature, humidity, or DHT11 readings. The data pin is fixed to GPIO3.",
+        .description = "Read temperature and humidity from an AHT10 I2C sensor. Use this when the user asks about room temperature, humidity, AHT10 readings, 温度, 湿度, or 温湿度. Optional SDA/SCL GPIO overrides can be provided for wiring diagnostics.",
         .input_schema_json =
-            "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
-        .execute = tool_read_temperature_humidity_execute,
+            "{\"type\":\"object\","
+            "\"properties\":{\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
+            "\"scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional SCL GPIO override\"},"
+            "\"i2c_port\":{\"type\":\"integer\",\"description\":\"Optional I2C port override\"},"
+            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"},"
+            "\"address\":{\"type\":\"integer\",\"description\":\"Optional AHT10 I2C address, normally 0x38\"}},"
+            "\"required\":[]}",
+        .execute = tool_aht10_read_temperature_humidity_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "read_presence",
+        .description = "Read human presence from a 3-wire digital OUT human/PIR sensor, or from HC-SR05 ultrasonic proximity when Trig/Echo pins are configured. Prefer this when the user asks whether someone is nearby, whether a person is present, asks about human body sensing, proximity, obstacle distance, or Chinese phrases like '有人吗', '人体传感器', '有人靠近', '检测人体', '测一下距离', or 'HC-SR05'. Returns present=true/false, and distance_cm when ultrasonic mode is used.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"out_gpio\":{\"type\":\"integer\",\"description\":\"Optional 3-wire presence sensor OUT GPIO override\"},"
+            "\"trig_gpio\":{\"type\":\"integer\",\"description\":\"Optional HC-SR05 Trig GPIO override\"},"
+            "\"echo_gpio\":{\"type\":\"integer\",\"description\":\"Optional HC-SR05 Echo GPIO override; protect ESP32 input from 5V Echo\"},"
+            "\"threshold_cm\":{\"type\":\"integer\",\"description\":\"Optional presence threshold in centimeters, defaults to configured threshold\"},"
+            "\"samples\":{\"type\":\"integer\",\"description\":\"Optional sample count 1-7, defaults to 5\"}},"
+            "\"required\":[]}",
+        .execute = tool_read_presence_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "hc_sr05_read_distance",
+        .description = "Low-level direct HC-SR05 ultrasonic distance read. Use this for explicit HC-SR05 diagnostics, Trig/Echo wiring checks, threshold tuning, or direct distance measurement requests.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"trig_gpio\":{\"type\":\"integer\",\"description\":\"Optional HC-SR05 Trig GPIO override\"},"
+            "\"echo_gpio\":{\"type\":\"integer\",\"description\":\"Optional HC-SR05 Echo GPIO override; protect ESP32 input from 5V Echo\"},"
+            "\"threshold_cm\":{\"type\":\"integer\",\"description\":\"Optional presence threshold in centimeters, defaults to configured threshold\"},"
+            "\"samples\":{\"type\":\"integer\",\"description\":\"Optional sample count 1-7, defaults to 5\"}},"
+            "\"required\":[]}",
+        .execute = tool_hc_sr05_read_distance_execute,
     });
 
     register_tool(&(mimi_tool_t){
@@ -228,6 +263,20 @@ esp_err_t tool_registry_init(void)
             "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"}},"
             "\"required\":[]}",
         .execute = tool_sgp30_read_air_quality_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "read_light_level",
+        .description = "Read ambient light level in lux from a GY-30/BH1750 I2C light sensor. Prefer this when the user asks about light level, ambient light, illuminance, lux, GY-30, BH1750, 光照, 光线亮度, 照度, or 勒克斯. Optional SDA/SCL GPIO and address overrides can be provided for wiring diagnostics.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SDA GPIO override\"},"
+            "\"scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional SCL GPIO override\"},"
+            "\"i2c_port\":{\"type\":\"integer\",\"description\":\"Optional I2C port override\"},"
+            "\"scl_hz\":{\"type\":\"integer\",\"description\":\"Optional I2C clock speed in Hz, defaults to 100000\"},"
+            "\"address\":{\"type\":\"integer\",\"description\":\"Optional BH1750 I2C address, 0x23 by default or 0x5C when ADDR is high\"}},"
+            "\"required\":[]}",
+        .execute = tool_bh1750_read_light_execute,
     });
 
     register_tool(&(mimi_tool_t){

@@ -61,12 +61,40 @@ static bool message_has_any_keyword(const char *message, const char *const *keyw
     return false;
 }
 
+static bool tool_guard_match_light_sensor_request(const char *message)
+{
+    static const char *const topic_keywords[] = {
+        "light level", "ambient light", "illuminance", "lux", "gy-30", "gy30", "bh1750",
+        "light sensor", "brightness sensor",
+        "光照", "光线", "亮度", "照度", "勒克斯", "光传感器", "gy-30", "gy30", "bh1750",
+    };
+    static const char *const intent_keywords[] = {
+        "read", "check", "measure", "detect", "show", "status", "how bright", "how much",
+        "读取", "检测", "测量", "查看", "读一下", "多少", "数值", "状态", "亮不亮",
+    };
+
+    if (contains_substr_ci(message, "gy-30") ||
+        contains_substr_ci(message, "gy30") ||
+        contains_substr_ci(message, "bh1750") ||
+        contains_substr_ci(message, "lux") ||
+        contains_substr_ci(message, "光照") ||
+        contains_substr_ci(message, "照度")) {
+        return true;
+    }
+
+    return message_has_any_keyword(message, topic_keywords, sizeof(topic_keywords) / sizeof(topic_keywords[0])) &&
+           message_has_any_keyword(message, intent_keywords, sizeof(intent_keywords) / sizeof(intent_keywords[0]));
+}
+
 static bool tool_guard_match_light_request(const char *message)
 {
     static const char *const keywords[] = {
         "light", "led", "rgb", "ws2812", "neopixel", "status light", "board light",
         "颜色", "灯", "灯光", "亮灯", "板载灯", "彩灯", "状态灯", "rgb灯", "ws2812",
     };
+    if (tool_guard_match_light_sensor_request(message)) {
+        return false;
+    }
     return message_has_any_keyword(message, keywords, sizeof(keywords) / sizeof(keywords[0]));
 }
 
@@ -82,6 +110,28 @@ static bool tool_guard_match_air_quality_request(const char *message)
     };
 
     if (contains_substr_ci(message, "sgp30")) {
+        return true;
+    }
+
+    return message_has_any_keyword(message, topic_keywords, sizeof(topic_keywords) / sizeof(topic_keywords[0])) &&
+           message_has_any_keyword(message, intent_keywords, sizeof(intent_keywords) / sizeof(intent_keywords[0]));
+}
+
+static bool tool_guard_match_presence_request(const char *message)
+{
+    static const char *const topic_keywords[] = {
+        "presence", "human sensor", "person", "someone", "anyone", "nearby", "proximity",
+        "distance sensor", "ultrasonic", "hc-sr05", "hcsr05", "hc sr05", "trig", "echo",
+        "人体传感器", "人体", "有人", "人靠近", "靠近", "距离", "测距", "超声波", "障碍", "hc-sr05", "hcsr05",
+    };
+    static const char *const intent_keywords[] = {
+        "read", "check", "measure", "detect", "show", "status", "is there", "is anyone", "is someone",
+        "读取", "检测", "测量", "查看", "读一下", "有没有", "有人吗", "靠近吗", "多少", "状态",
+    };
+
+    if (contains_substr_ci(message, "hc-sr05") ||
+        contains_substr_ci(message, "hcsr05") ||
+        contains_substr_ci(message, "人体传感器")) {
         return true;
     }
 
@@ -139,7 +189,10 @@ static bool tool_guard_check(const llm_tool_call_t *call, const mimi_msg_t *msg,
     bool allowed = true;
     const char *expected = NULL;
 
-    if (strcmp(tool_name, "set_status_light") == 0 || strcmp(tool_name, "ws2812_set") == 0) {
+    if (strcmp(tool_name, "read_light_level") == 0) {
+        allowed = tool_guard_match_light_sensor_request(message);
+        expected = "ambient-light, illuminance, lux, or GY-30/BH1750 sensor reading";
+    } else if (strcmp(tool_name, "set_status_light") == 0 || strcmp(tool_name, "ws2812_set") == 0) {
         allowed = tool_guard_match_light_request(message);
         expected = "board light or LED control";
     } else if (strcmp(tool_name, "servo_write") == 0) {
@@ -148,6 +201,9 @@ static bool tool_guard_check(const llm_tool_call_t *call, const mimi_msg_t *msg,
     } else if (strcmp(tool_name, "read_air_quality") == 0 || strcmp(tool_name, "sgp30_read_air_quality") == 0) {
         allowed = tool_guard_match_air_quality_request(message);
         expected = "air-quality or gas-sensor reading";
+    } else if (strcmp(tool_name, "read_presence") == 0 || strcmp(tool_name, "hc_sr05_read_distance") == 0) {
+        allowed = tool_guard_match_presence_request(message);
+        expected = "HC-SR05 presence, proximity, or distance reading";
     } else if (strcmp(tool_name, "gpio_write") == 0) {
         allowed = tool_guard_match_gpio_write_request(message);
         expected = "explicit GPIO or digital output control";

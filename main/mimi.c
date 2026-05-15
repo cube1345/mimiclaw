@@ -23,14 +23,19 @@
 #include "proxy/http_proxy.h"
 #include "tools/tool_registry.h"
 #include "tools/tool_sgp30.h"
-#include "tools/tool_dht11.h"
+#include "tools/tool_aht10.h"
+#include "tools/tool_hc_sr05.h"
 #include "tools/tool_servo.h"
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
 #include "onboard/wifi_onboard.h"
+#include "sensors/sensor_mqtt.h"
 
 static const char *TAG = "mimi";
+
+#define MIMI_PRESENCE_MONITOR_INTERVAL_MS 1000
+#define MIMI_AHT10_MONITOR_INTERVAL_MS 2000
 
 static void boot_servo_task(void *arg)
 {
@@ -55,21 +60,51 @@ static void boot_servo_task(void *arg)
     vTaskDelete(NULL);
 }
 
-static void boot_dht11_task(void *arg)
+static void aht10_monitor_task(void *arg)
 {
     (void)arg;
 
     vTaskDelay(pdMS_TO_TICKS(2000));
 
-    char output[256] = {0};
-    ESP_LOGI(TAG, "Boot DHT11 demo: reading temperature and humidity on GPIO%d", MIMI_DHT11_DEFAULT_GPIO);
-    esp_err_t err = tool_read_temperature_humidity_execute("{}", output, sizeof(output));
-    ESP_LOGI(TAG, "Boot DHT11 demo result: %s", output);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Boot DHT11 demo failed: %s", esp_err_to_name(err));
-    }
+    ESP_LOGI(TAG,
+             "AHT10 monitor started: SDA=GPIO%d SCL=GPIO%d addr=0x%02x interval=%dms, bypassing LLM",
+             MIMI_AHT10_DEFAULT_SDA_GPIO,
+             MIMI_AHT10_DEFAULT_SCL_GPIO,
+             MIMI_AHT10_DEFAULT_ADDR,
+             MIMI_AHT10_MONITOR_INTERVAL_MS);
 
-    vTaskDelete(NULL);
+    while (1) {
+        char output[256] = {0};
+        esp_err_t err = tool_aht10_read_temperature_humidity_execute("{}", output, sizeof(output));
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "AHT10 monitor: %s", output);
+        } else {
+            ESP_LOGW(TAG, "AHT10 monitor failed: %s (%s)", esp_err_to_name(err), output);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(MIMI_AHT10_MONITOR_INTERVAL_MS));
+    }
+}
+
+static void presence_monitor_task(void *arg)
+{
+    (void)arg;
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    ESP_LOGI(TAG, "Presence monitor started on GPIO%d, interval=%dms",
+             MIMI_PRESENCE_DEFAULT_GPIO, MIMI_PRESENCE_MONITOR_INTERVAL_MS);
+
+    while (1) {
+        char output[256] = {0};
+        esp_err_t err = tool_read_presence_execute("{}", output, sizeof(output));
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "Presence monitor: %s", output);
+        } else {
+            ESP_LOGW(TAG, "Presence monitor failed: %s (%s)", esp_err_to_name(err), output);
+        }
+        vTaskDelay(pdMS_TO_TICKS(MIMI_PRESENCE_MONITOR_INTERVAL_MS));
+    }
 }
 
 static esp_err_t init_nvs(void)
@@ -189,8 +224,13 @@ void app_main(void)
         ? ESP_OK : ESP_FAIL);
 
     ESP_ERROR_CHECK((xTaskCreatePinnedToCore(
-        boot_dht11_task, "boot_dht11",
+        aht10_monitor_task, "aht10_mon",
         4096, NULL, 4, NULL, 0) == pdPASS)
+        ? ESP_OK : ESP_FAIL);
+
+    ESP_ERROR_CHECK((xTaskCreatePinnedToCore(
+        presence_monitor_task, "presence_mon",
+        3072, NULL, 4, NULL, 0) == pdPASS)
         ? ESP_OK : ESP_FAIL);
 
     if (tool_sgp30_monitor_start() != ESP_OK) {
@@ -234,6 +274,7 @@ void app_main(void)
         ESP_ERROR_CHECK(agent_loop_start());
         ESP_ERROR_CHECK(telegram_bot_start());
         ESP_ERROR_CHECK(feishu_bot_start());
+        ESP_ERROR_CHECK(sensor_mqtt_start());
         cron_service_start();
         heartbeat_start();
         ESP_ERROR_CHECK(ws_server_start());

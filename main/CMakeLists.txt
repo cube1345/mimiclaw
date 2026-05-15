@@ -16,6 +16,7 @@ idf_component_register(
         "proxy/http_proxy.c"
         "cron/cron_service.c"
         "heartbeat/heartbeat.c"
+        "sensors/sensor_mqtt.c"
         "tools/tool_registry.c"
         "tools/tool_cron.c"
         "tools/tool_web_search.c"
@@ -24,9 +25,13 @@ idf_component_register(
         "tools/gpio_policy.c"
         "tools/tool_gpio.c"
         "tools/tool_servo.c"
-        "tools/tool_dht11.c"
+        "tools/tool_aht10.c"
+        "tools/tool_hc_sr05.c"
         "tools/tool_sgp30.c"
+        "tools/tool_bh1750.c"
+        "drivers/aht10.c"
         "drivers/sgp30.c"
+        "drivers/bh1750.c"
         "skills/skill_loader.c"
         "onboard/wifi_onboard.c"
     INCLUDE_DIRS
@@ -35,5 +40,5 @@ idf_component_register(
         nvs_flash esp_wifi esp_netif esp_http_client esp_http_server
         esp_https_ota esp_event spiffs console vfs app_update esp-tls
         esp_timer esp_websocket_client esp_driver_gpio esp_driver_rmt esp_driver_i2c
-        esp_driver_ledc
+        esp_driver_ledc esp_driver_uart
 )

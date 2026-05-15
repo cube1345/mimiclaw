@@ -19,6 +19,7 @@ typedef struct {
     bool active;
 } ws_client_t;
 
+
 static ws_client_t s_clients[MIMI_WS_MAX_CLIENTS];
 
 static ws_client_t *find_client_by_fd(int fd)

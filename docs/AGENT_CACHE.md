@@ -27,7 +27,7 @@ Configured in `main/mimi_config.h`:
 #define MIMI_CACHE_MAX_VALUE_BYTES   4096
 #define MIMI_CACHE_MAX_TOTAL_BYTES   (24 * 1024)
 #define MIMI_CACHE_DEFAULT_TTL_S     300
-#define MIMI_CACHE_SKILLS_TTL_S      300
+#define MIMI_CACHE_SKILLS_TTL_S      (24 * 60 * 60)
 ```
 
 These limits are deliberately conservative for ESP32-S3. The cache is useful for short strings, compact JSON, prompt fragments, tool metadata, and small tool result summaries.
@@ -41,6 +41,7 @@ esp_err_t cache_put(const char *key, const char *value, uint32_t ttl_s);
 esp_err_t cache_delete(const char *key);
 esp_err_t cache_delete_prefix(const char *prefix);
 void cache_stats(cache_stats_t *stats);
+size_t cache_dump(char *out, size_t out_size);
 void cache_clear(void);
 ```
 
@@ -50,6 +51,7 @@ void cache_clear(void);
 - `misses`
 - `evictions`
 - `expired`
+- `truncated`
 - `entries`
 - `bytes`
 
@@ -68,12 +70,15 @@ void cache_clear(void);
 
 This reduces repeated SPIFFS directory scans and markdown reads during normal agent turns.
 
+The skills summary TTL is intentionally long. Normal skill changes should invalidate explicitly through `write_file` or `edit_file`; the TTL is a fallback for unusual cases.
+
 ## CLI Observability
 
 Serial CLI commands:
 
 ```text
 cache_stats
+cache_dump
 cache_clear
 ```
 
@@ -87,6 +92,7 @@ Cache misses:    1
 Cache hit rate:  80.00% (5 lookups)
 Cache evictions: 0
 Cache expired:   0
+Cache truncated: 0
 ```
 
 Hit rate is calculated as:
@@ -96,6 +102,15 @@ hits / (hits + misses)
 ```
 
 If there have been no lookups, hit rate is reported as `0.00% (0 lookups)`.
+
+`cache_dump` prints per-entry observability:
+
+```text
+=== Cache Entries ===
+- key=prompt:skills_summary bytes=812 ttl_s=86340 hits=4 last_access_age_s=2
+```
+
+`cache_clear` clears entries and resets cache counters.
 
 ## Key Naming
 

@@ -3,6 +3,7 @@
 #include "mimi_config.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -30,6 +31,7 @@ static uint32_t s_hits;
 static uint32_t s_misses;
 static uint32_t s_evictions;
 static uint32_t s_expired;
+static uint32_t s_truncated;
 static size_t s_total_bytes;
 
 static int64_t now_us(void)
@@ -186,6 +188,9 @@ esp_err_t cache_get(const char *key, char *out, size_t out_size)
     entry->last_access_us = now;
     entry->hits++;
     s_hits++;
+    if (copy != entry->value_len) {
+        s_truncated++;
+    }
 
     xSemaphoreGive(s_lock);
     return (copy == entry->value_len) ? ESP_OK : ESP_ERR_INVALID_SIZE;
@@ -301,6 +306,7 @@ void cache_stats(cache_stats_t *stats)
     stats->misses = s_misses;
     stats->evictions = s_evictions;
     stats->expired = s_expired;
+    stats->truncated = s_truncated;
     stats->bytes = (uint32_t)s_total_bytes;
     for (int i = 0; i < MIMI_CACHE_MAX_ENTRIES; ++i) {
         if (s_entries[i].used) {
@@ -308,6 +314,66 @@ void cache_stats(cache_stats_t *stats)
         }
     }
     xSemaphoreGive(s_lock);
+}
+
+size_t cache_dump(char *out, size_t out_size)
+{
+    if (!out || out_size == 0) {
+        return 0;
+    }
+
+    out[0] = '\0';
+    if (!s_lock) {
+        return 0;
+    }
+
+    size_t off = 0;
+    int64_t now = now_us();
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+
+    for (int i = 0; i < MIMI_CACHE_MAX_ENTRIES && off < out_size - 1; ++i) {
+        cache_entry_t *entry = &s_entries[i];
+        if (!entry->used) {
+            continue;
+        }
+
+        int64_t ttl_left_s = -1;
+        if (entry->expires_at_us > 0) {
+            int64_t ttl_left_us = entry->expires_at_us - now;
+            ttl_left_s = ttl_left_us > 0 ? ttl_left_us / 1000000LL : 0;
+        }
+
+        int64_t age_s = 0;
+        if (entry->last_access_us > 0 && now >= entry->last_access_us) {
+            age_s = (now - entry->last_access_us) / 1000000LL;
+        }
+
+        int n = snprintf(out + off, out_size - off,
+                         "- key=%s bytes=%u ttl_s=%lld hits=%u last_access_age_s=%lld\n",
+                         entry->key,
+                         (unsigned)entry->value_len,
+                         (long long)ttl_left_s,
+                         (unsigned)entry->hits,
+                         (long long)age_s);
+        if (n < 0) {
+            break;
+        }
+        if ((size_t)n >= out_size - off) {
+            off = out_size - 1;
+            out[off] = '\0';
+            break;
+        }
+        off += (size_t)n;
+    }
+
+    xSemaphoreGive(s_lock);
+
+    if (off == 0) {
+        snprintf(out, out_size, "(cache empty)\n");
+        off = strlen(out);
+    }
+
+    return off;
 }
 
 void cache_clear(void)
@@ -321,5 +387,10 @@ void cache_clear(void)
         free_entry(&s_entries[i]);
     }
     s_total_bytes = 0;
+    s_hits = 0;
+    s_misses = 0;
+    s_evictions = 0;
+    s_expired = 0;
+    s_truncated = 0;
     xSemaphoreGive(s_lock);
 }

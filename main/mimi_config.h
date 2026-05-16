@@ -200,7 +200,7 @@
 #define MIMI_CACHE_MAX_VALUE_BYTES   4096
 #define MIMI_CACHE_MAX_TOTAL_BYTES   (24 * 1024)
 #define MIMI_CACHE_DEFAULT_TTL_S     300
-#define MIMI_CACHE_SKILLS_TTL_S      300
+#define MIMI_CACHE_SKILLS_TTL_S      (24 * 60 * 60)
 
 /* Cron / Heartbeat */
 #define MIMI_CRON_FILE               MIMI_SPIFFS_BASE "/cron.json"

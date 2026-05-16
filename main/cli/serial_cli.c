@@ -16,6 +16,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <dirent.h>
 #include "esp_log.h"
@@ -279,6 +280,25 @@ static int cmd_cache_stats(int argc, char **argv)
            (unsigned)total_lookups);
     printf("Cache evictions: %u\n", (unsigned)stats.evictions);
     printf("Cache expired:   %u\n", (unsigned)stats.expired);
+    printf("Cache truncated: %u\n", (unsigned)stats.truncated);
+    return 0;
+}
+
+/* --- cache_dump command --- */
+static int cmd_cache_dump(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    char *buf = calloc(1, 2048);
+    if (!buf) {
+        printf("Out of memory.\n");
+        return 1;
+    }
+
+    cache_dump(buf, 2048);
+    printf("=== Cache Entries ===\n%s", buf);
+    free(buf);
     return 0;
 }
 
@@ -1023,10 +1043,18 @@ esp_err_t serial_cli_init(void)
     };
     esp_console_cmd_register(&cache_stats_cmd);
 
+    /* cache_dump */
+    esp_console_cmd_t cache_dump_cmd = {
+        .command = "cache_dump",
+        .help = "List agent RAM KV cache entries with TTL and hit counters",
+        .func = &cmd_cache_dump,
+    };
+    esp_console_cmd_register(&cache_dump_cmd);
+
     /* cache_clear */
     esp_console_cmd_t cache_clear_cmd = {
         .command = "cache_clear",
-        .help = "Clear agent RAM KV cache",
+        .help = "Clear agent RAM KV cache and counters",
         .func = &cmd_cache_clear,
     };
     esp_console_cmd_register(&cache_clear_cmd);

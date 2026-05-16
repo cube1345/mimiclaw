@@ -78,6 +78,7 @@ esp_err_t cache_put(const char *key, const char *value, uint32_t ttl_s);
 esp_err_t cache_delete(const char *key);
 esp_err_t cache_delete_prefix(const char *prefix);
 void cache_stats(cache_stats_t *stats);
+size_t cache_dump(char *out, size_t out_size);
 ```
 
 Optional stale-while-refresh API for slow remote calls:
@@ -178,7 +179,11 @@ Behavior:
 - `write_file` and `edit_file` invalidate the skills summary cache when modifying files under `/spiffs/skills/`.
 - Serial CLI commands:
   - `cache_stats`
+  - `cache_dump`
   - `cache_clear`
+- `cache_stats` includes hit rate and truncated-read counters.
+- `cache_clear` clears entries and resets counters.
+- Skills summary uses a long TTL and relies primarily on explicit invalidation.
 
 Next good cache targets:
 - MCP `tools/list` once MCP client/server support lands.

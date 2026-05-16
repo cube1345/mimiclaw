@@ -33,7 +33,7 @@ Use this skill when the user asks about cache, prompt caching, context caching, 
 Current project status:
 - Built-in tool JSON is rendered once by `tool_registry_init()`.
 - Skills summary is cached under `prompt:skills_summary` by the RAM KV cache.
-- `cache_stats` and `cache_clear` expose cache observability through Serial CLI.
+- `cache_stats`, `cache_dump`, and `cache_clear` expose cache observability through Serial CLI.
 - Skill writes/edits invalidate the cached skills summary.
 
 ## Patterns observed from Claude Code

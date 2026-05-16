@@ -371,6 +371,7 @@ CLI 可观测：
 
 ```text
 cache_stats
+cache_dump
 cache_clear
 ```
 
@@ -384,6 +385,7 @@ Cache misses
 Cache hit rate
 Cache evictions
 Cache expired
+Cache truncated
 ```
 
 命中率计算：
@@ -391,6 +393,8 @@ Cache expired
 ```text
 hits / (hits + misses)
 ```
+
+`cache_dump` 可以查看每个缓存项的 key、bytes、剩余 TTL、命中次数和最近访问间隔。
 
 后续适合接入：
 

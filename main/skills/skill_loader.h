@@ -18,3 +18,8 @@ esp_err_t skill_loader_init(void);
  * @return Number of bytes written (0 if no skills found)
  */
 size_t skill_loader_build_summary(char *buf, size_t size);
+
+/**
+ * Drop cached skill metadata so the next prompt rebuild sees SPIFFS changes.
+ */
+void skill_loader_invalidate_cache(void);

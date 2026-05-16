@@ -194,6 +194,14 @@
 #define MIMI_CONTEXT_BUF_SIZE        (16 * 1024)
 #define MIMI_SESSION_MAX_MSGS        20
 
+/* Agent cache */
+#define MIMI_CACHE_MAX_ENTRIES       32
+#define MIMI_CACHE_MAX_KEY_BYTES     64
+#define MIMI_CACHE_MAX_VALUE_BYTES   4096
+#define MIMI_CACHE_MAX_TOTAL_BYTES   (24 * 1024)
+#define MIMI_CACHE_DEFAULT_TTL_S     300
+#define MIMI_CACHE_SKILLS_TTL_S      300
+
 /* Cron / Heartbeat */
 #define MIMI_CRON_FILE               MIMI_SPIFFS_BASE "/cron.json"
 #define MIMI_CRON_MAX_JOBS           16

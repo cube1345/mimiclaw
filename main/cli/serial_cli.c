@@ -4,6 +4,7 @@
 #include "channels/telegram/telegram_bot.h"
 #include "channels/feishu/feishu_bot.h"
 #include "llm/llm_proxy.h"
+#include "cache/cache_store.h"
 #include "memory/memory_store.h"
 #include "memory/session_mgr.h"
 #include "proxy/http_proxy.h"
@@ -254,6 +255,41 @@ static int cmd_heap_info(int argc, char **argv)
            (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     printf("Total free:    %d bytes\n",
            (int)esp_get_free_heap_size());
+    return 0;
+}
+
+/* --- cache_stats command --- */
+static int cmd_cache_stats(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    cache_stats_t stats;
+    cache_stats(&stats);
+    uint32_t total_lookups = stats.hits + stats.misses;
+    uint32_t hit_rate_x100 = total_lookups ? (stats.hits * 10000U) / total_lookups : 0;
+
+    printf("Cache entries:   %u/%u\n", (unsigned)stats.entries, (unsigned)MIMI_CACHE_MAX_ENTRIES);
+    printf("Cache bytes:     %u/%u\n", (unsigned)stats.bytes, (unsigned)MIMI_CACHE_MAX_TOTAL_BYTES);
+    printf("Cache hits:      %u\n", (unsigned)stats.hits);
+    printf("Cache misses:    %u\n", (unsigned)stats.misses);
+    printf("Cache hit rate:  %u.%02u%% (%u lookups)\n",
+           (unsigned)(hit_rate_x100 / 100U),
+           (unsigned)(hit_rate_x100 % 100U),
+           (unsigned)total_lookups);
+    printf("Cache evictions: %u\n", (unsigned)stats.evictions);
+    printf("Cache expired:   %u\n", (unsigned)stats.expired);
+    return 0;
+}
+
+/* --- cache_clear command --- */
+static int cmd_cache_clear(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    cache_clear();
+    printf("Cache cleared.\n");
     return 0;
 }
 
@@ -978,6 +1014,22 @@ esp_err_t serial_cli_init(void)
         .func = &cmd_heap_info,
     };
     esp_console_cmd_register(&heap_cmd);
+
+    /* cache_stats */
+    esp_console_cmd_t cache_stats_cmd = {
+        .command = "cache_stats",
+        .help = "Show agent RAM KV cache usage and hit/miss counters",
+        .func = &cmd_cache_stats,
+    };
+    esp_console_cmd_register(&cache_stats_cmd);
+
+    /* cache_clear */
+    esp_console_cmd_t cache_clear_cmd = {
+        .command = "cache_clear",
+        .help = "Clear agent RAM KV cache",
+        .func = &cmd_cache_clear,
+    };
+    esp_console_cmd_register(&cache_clear_cmd);
 
     /* set_search_key */
     search_key_args.key = arg_str1(NULL, NULL, "<key>", "Brave Search API key");

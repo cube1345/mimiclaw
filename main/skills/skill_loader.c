@@ -1,4 +1,5 @@
 #include "skills/skill_loader.h"
+#include "cache/cache_store.h"
 #include "mimi_config.h"
 
 #include <stdio.h>
@@ -7,6 +8,7 @@
 #include "esp_log.h"
 
 static const char *TAG = "skills";
+static const char *SKILLS_SUMMARY_CACHE_KEY = "prompt:skills_summary";
 
 /*
  * Skills are stored as markdown files in spiffs_data/skills/
@@ -98,12 +100,14 @@ static void extract_description(FILE *f, char *out, size_t out_size)
     out[off] = '\0';
 }
 
-size_t skill_loader_build_summary(char *buf, size_t size)
+static size_t build_summary_uncached(char *buf, size_t size)
 {
     DIR *dir = opendir(MIMI_SPIFFS_BASE);
     if (!dir) {
         ESP_LOGW(TAG, "Cannot open SPIFFS for skill enumeration");
-        buf[0] = '\0';
+        if (size > 0) {
+            buf[0] = '\0';
+        }
         return 0;
     }
 
@@ -157,4 +161,31 @@ size_t skill_loader_build_summary(char *buf, size_t size)
     buf[off] = '\0';
     ESP_LOGI(TAG, "Skills summary: %d bytes", (int)off);
     return off;
+}
+
+size_t skill_loader_build_summary(char *buf, size_t size)
+{
+    if (!buf || size == 0) {
+        return 0;
+    }
+
+    esp_err_t cache_err = cache_get(SKILLS_SUMMARY_CACHE_KEY, buf, size);
+    if (cache_err == ESP_OK) {
+        ESP_LOGD(TAG, "Skills summary cache hit: %d bytes", (int)strlen(buf));
+        return strlen(buf);
+    }
+
+    size_t off = build_summary_uncached(buf, size);
+    if (off > 0) {
+        esp_err_t put_err = cache_put(SKILLS_SUMMARY_CACHE_KEY, buf, MIMI_CACHE_SKILLS_TTL_S);
+        if (put_err != ESP_OK) {
+            ESP_LOGD(TAG, "Skills summary cache put skipped: %s", esp_err_to_name(put_err));
+        }
+    }
+    return off;
+}
+
+void skill_loader_invalidate_cache(void)
+{
+    cache_delete(SKILLS_SUMMARY_CACHE_KEY);
 }

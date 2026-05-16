@@ -1,5 +1,6 @@
 #include "tools/tool_files.h"
 #include "mimi_config.h"
+#include "skills/skill_loader.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +29,13 @@ static bool validate_path(const char *path)
     }
     if (strstr(path, "..") != NULL) return false;
     return true;
+}
+
+static void invalidate_skill_cache_if_needed(const char *path)
+{
+    if (path && strncmp(path, MIMI_SKILLS_PREFIX, strlen(MIMI_SKILLS_PREFIX)) == 0) {
+        skill_loader_invalidate_cache();
+    }
 }
 
 /* ── read_file ─────────────────────────────────────────────── */
@@ -109,6 +117,7 @@ esp_err_t tool_write_file_execute(const char *input_json, char *output, size_t o
 
     snprintf(output, output_size, "OK: wrote %d bytes to %s", (int)written, path);
     ESP_LOGI(TAG, "write_file: %s (%d bytes)", path, (int)written);
+    invalidate_skill_cache_if_needed(path);
     cJSON_Delete(root);
     return ESP_OK;
 }
@@ -212,6 +221,7 @@ esp_err_t tool_edit_file_execute(const char *input_json, char *output, size_t ou
 
     snprintf(output, output_size, "OK: edited %s (replaced %d bytes with %d bytes)", path, (int)old_len, (int)new_len);
     ESP_LOGI(TAG, "edit_file: %s", path);
+    invalidate_skill_cache_if_needed(path);
     cJSON_Delete(root);
     return ESP_OK;
 }

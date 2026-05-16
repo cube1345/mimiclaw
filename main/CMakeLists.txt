@@ -9,6 +9,7 @@ idf_component_register(
         "llm/llm_proxy.c"
         "agent/agent_loop.c"
         "agent/context_builder.c"
+        "cache/cache_store.c"
         "memory/memory_store.c"
         "memory/session_mgr.c"
         "gateway/ws_server.c"

@@ -5,12 +5,7 @@ This guide walks through setting up a Feishu (or Lark) bot to work with MimiClaw
 ## Table of Contents
 
 - [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [Step 1: Create a Feishu App](#step-1-create-a-feishu-app)
-- [Step 2: Configure App Permissions](#step-2-configure-app-permissions)
-- [Step 3: Set Up Event Subscription](#step-3-set-up-event-subscription)
-- [Step 4: Configure MimiClaw](#step-4-configure-mimiclaw)
-- [Step 5: Network Setup](#step-5-network-setup)
+- [Prerequisites](#prerequisites) [Step 1: Create a Feishu App](#step-1-create-a-feishu-app) [Step 2: Configure App Permissions](#step-2-configure-app-permissions) [Step 3: Set Up Event Subscription](#step-3-set-up-event-subscription) [Step 4: Configure MimiClaw](#step-4-configure-mimiclaw) [Step 5: Network Setup](#step-5-network-setup)
 - [Step 6: Publish and Test](#step-6-publish-and-test)
 - [Architecture](#architecture)
 - [CLI Commands](#cli-commands)

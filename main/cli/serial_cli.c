@@ -10,6 +10,7 @@
 #include "proxy/http_proxy.h"
 #include "tools/tool_registry.h"
 #include "tools/tool_web_search.h"
+#include "drivers/max98357.h"
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
@@ -257,6 +258,52 @@ static int cmd_heap_info(int argc, char **argv)
     printf("Total free:    %d bytes\n",
            (int)esp_get_free_heap_size());
     return 0;
+}
+
+/* --- max98357_test command --- */
+static int cmd_max98357_test(int argc, char **argv)
+{
+    max98357_config_t cfg;
+    max98357_default_config(&cfg);
+
+    uint32_t frequency_hz = MIMI_MAX98357_DEFAULT_TONE_HZ;
+    uint32_t duration_ms = MIMI_MAX98357_DEFAULT_DURATION_MS;
+    uint8_t volume_pct = MIMI_MAX98357_DEFAULT_VOLUME_PCT;
+
+    if (argc == 4) {
+        cfg.bclk_gpio = (gpio_num_t)strtol(argv[1], NULL, 10);
+        cfg.ws_gpio = (gpio_num_t)strtol(argv[2], NULL, 10);
+        cfg.din_gpio = (gpio_num_t)strtol(argv[3], NULL, 10);
+    } else if (argc >= 7 && argc <= 10) {
+        frequency_hz = (uint32_t)strtoul(argv[1], NULL, 10);
+        duration_ms = (uint32_t)strtoul(argv[2], NULL, 10);
+        volume_pct = (uint8_t)strtoul(argv[3], NULL, 10);
+        cfg.bclk_gpio = (gpio_num_t)strtol(argv[4], NULL, 10);
+        cfg.ws_gpio = (gpio_num_t)strtol(argv[5], NULL, 10);
+        cfg.din_gpio = (gpio_num_t)strtol(argv[6], NULL, 10);
+        if (argc >= 8) {
+            cfg.sd_gpio = (gpio_num_t)strtol(argv[7], NULL, 10);
+        }
+        if (argc >= 9) {
+            cfg.i2s_port = (int)strtol(argv[8], NULL, 10);
+        }
+        if (argc >= 10) {
+            cfg.sample_rate_hz = (uint32_t)strtoul(argv[9], NULL, 10);
+        }
+    } else if (argc != 1) {
+        printf("Usage:\n");
+        printf("  max98357_test\n");
+        printf("  max98357_test <bclk_gpio> <ws_gpio> <din_gpio>\n");
+        printf("  max98357_test <freq_hz> <duration_ms> <volume_pct> <bclk_gpio> <ws_gpio> <din_gpio> [sd_gpio] [i2s_port] [sample_rate_hz]\n");
+        return 1;
+    }
+
+    char result[256];
+    esp_err_t err = max98357_play_tone(&cfg, frequency_hz, duration_ms, volume_pct,
+                                       result, sizeof(result));
+    printf("max98357_test status: %s\n", esp_err_to_name(err));
+    printf("%s\n", result[0] ? result : "(empty)");
+    return (err == ESP_OK) ? 0 : 1;
 }
 
 /* --- cache_stats command --- */
@@ -1034,6 +1081,14 @@ esp_err_t serial_cli_init(void)
         .func = &cmd_heap_info,
     };
     esp_console_cmd_register(&heap_cmd);
+
+    /* max98357_test */
+    esp_console_cmd_t max98357_cmd = {
+        .command = "max98357_test",
+        .help = "Play a short test tone through the MAX98357 audio amplifier",
+        .func = &cmd_max98357_test,
+    };
+    esp_console_cmd_register(&max98357_cmd);
 
     /* cache_stats */
     esp_console_cmd_t cache_stats_cmd = {

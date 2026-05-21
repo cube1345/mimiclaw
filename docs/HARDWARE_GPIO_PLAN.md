@@ -21,6 +21,7 @@
 | MH-Z19B | UART1 RX=GPIO16, TX=GPIO17 | 已支持 | 后台 MQTT 上报 CO2 |
 | 3-wire PIR / 人体存在 | GPIO13 | 已支持 | OUT 数字输入 |
 | HC-SR05 | 未固定 | 已支持但未配置 | 需要 Trig/Echo 两个 GPIO |
+| MAX98357 I2S 音频放大器 | GPIO1/BCLK, GPIO2/WS, GPIO3/DIN | 已支持 | SD 可选 |
 | SGP30 | 当前 SDA=GPIO17, SCL=GPIO18 | 已支持但有冲突 | GPIO17 与 MH-Z19B UART 冲突 |
 | 通用 GPIO | 1-18, 21, 38, 46 | 已支持 | GPIO46 建议只做输入 |
 
@@ -30,9 +31,9 @@
 
 | GPIO | 目标用途 | 方向 | 接线 / 说明 | 固件状态 |
 |---:|---|---|---|---|
-| GPIO1 | 继电器 1 | OUT | Relay IN1 / MOSFET gate | 可用通用 GPIO，建议新增专用工具 |
-| GPIO2 | 继电器 2 | OUT | Relay IN2 / MOSFET gate | 可用通用 GPIO，建议新增专用工具 |
-| GPIO3 | 预留数字输入 | IN | 可接按钮、门磁或其他数字 OUT 传感器 | 可用通用 GPIO |
+| GPIO1 | MAX98357 BCLK | OUT | MAX98357 BCLK | 已支持 |
+| GPIO2 | MAX98357 WS/LRCLK | OUT | MAX98357 WS/LRCLK | 已支持 |
+| GPIO3 | MAX98357 DIN | OUT | MAX98357 DIN | 已支持 |
 | GPIO4 | DHT22 DATA | IN/OD | DHT22 data，上拉到 3V3 | 已支持 |
 | GPIO5 | 舵机 1 PWM | OUT | Servo 1 signal | 已支持 |
 | GPIO6 | 舵机 2 PWM | OUT | Servo 2 signal | 需扩展第二路舵机 |
@@ -187,10 +188,8 @@ PIR OUT -> GPIO13
 推荐分配：
 
 ```text
-GPIO1  -> Relay IN1
-GPIO2  -> Relay IN2
-GPIO10 -> MOSFET gate 1
-GPIO11 -> MOSFET gate 2
+GPIO10 -> Relay IN1 / MOSFET gate 1
+GPIO11 -> Relay IN2 / MOSFET gate 2
 ```
 
 注意：
@@ -199,7 +198,27 @@ GPIO11 -> MOSFET gate 2
 - 风扇、水泵、电磁铁等感性负载需要续流二极管或使用成品驱动模块。
 - 不要让 ESP32 GPIO 直接给负载供电，GPIO 只输出控制信号。
 
-### 3.9 蜂鸣器
+### 3.9 MAX98357 I2S 音频放大器
+
+```text
+MAX98357 BCLK   -> GPIO1
+MAX98357 WS/LRCLK -> GPIO2
+MAX98357 DIN    -> GPIO3
+MAX98357 SD     -> 可选 GPIO，或直接上拉到 3V3 使能
+MAX98357 GAIN   -> 可悬空
+MAX98357 GND    -> ESP32-S3 GND
+MAX98357 VIN    -> 5V 优先，3V3 也可低功率测试
+```
+
+说明：
+
+- 这是 I2S 音频放大器，不是普通 GPIO 蜂鸣器。
+- 固件里按需申请 I2S TX 通道，播放测试音后释放。
+- 这组引脚已固定在固件默认配置里，串口命令可直接执行 `max98357_test`。
+- 如果日志显示 `ESP_OK` 但听不到声音，优先把 `SD` 接到 `3V3`，确认模块没有处于 shutdown。
+- 更明显的排障音：`max98357_test 1000 3000 80 1 2 3`。
+
+### 3.10 蜂鸣器
 
 ```text
 Buzzer + / IN -> GPIO7
@@ -211,7 +230,7 @@ Buzzer -      -> GND
 - 有源蜂鸣器：GPIO 高低电平控制即可。
 - 无源蜂鸣器：用 PWM 输出固定频率。
 
-### 3.10 按钮 / 编码器 / 状态输入
+### 3.11 按钮 / 编码器 / 状态输入
 
 ```text
 Button 1 -> GPIO8  -> GND
@@ -282,6 +301,17 @@ Payload：
 #define MIMI_SECRET_SENSOR_MHZ19_UART_NUM 1
 #define MIMI_SECRET_SENSOR_MHZ19_RX_GPIO 16
 #define MIMI_SECRET_SENSOR_MHZ19_TX_GPIO 17
+
+/* MAX98357 I2S amplifier */
+#define MIMI_SECRET_MAX98357_BCLK_GPIO 1
+#define MIMI_SECRET_MAX98357_WS_GPIO   2
+#define MIMI_SECRET_MAX98357_DIN_GPIO  3
+#define MIMI_SECRET_MAX98357_SD_GPIO   (-1)
+#define MIMI_SECRET_MAX98357_I2S_PORT  0
+#define MIMI_SECRET_MAX98357_SAMPLE_RATE_HZ 16000
+#define MIMI_SECRET_MAX98357_DEFAULT_TONE_HZ 440
+#define MIMI_SECRET_MAX98357_DEFAULT_DURATION_MS 2000
+#define MIMI_SECRET_MAX98357_DEFAULT_VOLUME_PCT 70
 ```
 
 ## 6. 固件待办清单
@@ -299,9 +329,9 @@ Payload：
 ## 7. 最终占用概览
 
 ```text
-GPIO1   Relay 1
-GPIO2   Relay 2
-GPIO3   Digital input reserve
+GPIO1   MAX98357 BCLK
+GPIO2   MAX98357 WS/LRCLK
+GPIO3   MAX98357 DIN
 GPIO4   DHT22
 GPIO5   Servo 1
 GPIO6   Servo 2

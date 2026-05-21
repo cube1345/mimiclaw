@@ -1,5 +1,4 @@
----
-name: deploy
+--- name: deploy
 description: Deploy MimiClaw firmware to an ESP32-S3 board. Covers prerequisites, configuration, build, flash, verification, and troubleshooting.
 ---
 

@@ -189,6 +189,11 @@ static esp_err_t hc_sr05_read_once(int trig_gpio, int echo_gpio, float *distance
     return ESP_OK;
 }
 
+/// @brief 读取HC-SR05传感器距离并判断是否有人存在
+/// @param input_json 
+/// @param output 
+/// @param output_size 
+/// @return 
 esp_err_t tool_read_presence_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json && input_json[0] ? input_json : "{}");

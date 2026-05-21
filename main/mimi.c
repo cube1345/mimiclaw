@@ -24,11 +24,12 @@
 #include "proxy/http_proxy.h"
 #include "tools/tool_registry.h"
 #include "tools/tool_sgp30.h"
-#include "tools/tool_aht10.h"
+#include "tools/tool_environment.h"
 #include "tools/tool_hc_sr05.h"
 #include "tools/tool_servo.h"
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
+#include "espnow/espnow_sender.h"
 #include "skills/skill_loader.h"
 #include "onboard/wifi_onboard.h"
 #include "sensors/sensor_mqtt.h"
@@ -36,7 +37,7 @@
 static const char *TAG = "mimi";
 
 #define MIMI_PRESENCE_MONITOR_INTERVAL_MS 1000
-#define MIMI_AHT10_MONITOR_INTERVAL_MS 2000
+#define MIMI_ENVIRONMENT_MONITOR_INTERVAL_MS 3000
 
 static void boot_servo_task(void *arg)
 {
@@ -61,29 +62,61 @@ static void boot_servo_task(void *arg)
     vTaskDelete(NULL);
 }
 
-static void aht10_monitor_task(void *arg)
+static void environment_monitor_task(void *arg)
 {
     (void)arg;
 
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     ESP_LOGI(TAG,
-             "AHT10 monitor started: SDA=GPIO%d SCL=GPIO%d addr=0x%02x interval=%dms, bypassing LLM",
+             "Environment monitor started: AHT20 HW I2C SDA=GPIO%d SCL=GPIO%d, SGP30 HW I2C SDA=GPIO%d SCL=GPIO%d, GY-30 software I2C SDA=GPIO%d SCL=GPIO%d, interval=%dms, bypassing LLM",
              MIMI_AHT10_DEFAULT_SDA_GPIO,
              MIMI_AHT10_DEFAULT_SCL_GPIO,
-             MIMI_AHT10_DEFAULT_ADDR,
-             MIMI_AHT10_MONITOR_INTERVAL_MS);
+             MIMI_SGP30_DEFAULT_SDA_GPIO,
+             MIMI_SGP30_DEFAULT_SCL_GPIO,
+             MIMI_BH1750_DEFAULT_SDA_GPIO,
+             MIMI_BH1750_DEFAULT_SCL_GPIO,
+             MIMI_ENVIRONMENT_MONITOR_INTERVAL_MS);
 
     while (1) {
-        char output[256] = {0};
-        esp_err_t err = tool_aht10_read_temperature_humidity_execute("{}", output, sizeof(output));
+        tool_environment_values_t values = {
+            .temperature_c_x10 = -1,
+            .humidity_percent_x10 = -1,
+            .co2eq_ppm = -1,
+            .tvoc_ppb = -1,
+            .light_lux_x10 = -1,
+            .light_raw = -1,
+            .sgp30_warming_up = false,
+        };
+        char status[128] = {0};
+        esp_err_t err = tool_environment_read_values(&values, status, sizeof(status));
         if (err == ESP_OK) {
-            ESP_LOGI(TAG, "AHT10 monitor: %s", output);
+            char payload[256] = {0};
+            snprintf(payload, sizeof(payload),
+                     "co2=%d,temp_x10=%d,hum_x10=%d,lux_x10=%d,raw=%d,warmup=%d",
+                     values.co2eq_ppm,
+                     values.temperature_c_x10,
+                     values.humidity_percent_x10,
+                     values.light_lux_x10,
+                     values.light_raw,
+                     values.sgp30_warming_up ? 1 : 0);
+            ESP_LOGI(TAG, "Environment monitor: %s [%s]", payload, status);
+            esp_err_t send_err = espnow_sender_send_text("env", payload);
+            if (send_err != ESP_OK) {
+                ESP_LOGW(TAG, "Environment ESP-NOW send failed: %s", esp_err_to_name(send_err));
+            }
         } else {
-            ESP_LOGW(TAG, "AHT10 monitor failed: %s (%s)", esp_err_to_name(err), output);
+            char payload[256] = {0};
+            snprintf(payload, sizeof(payload),
+                     "co2=-1,temp_x10=-1,hum_x10=-1,lux_x10=-1,raw=-1,warmup=-1");
+            ESP_LOGW(TAG, "Environment monitor failed: %s (%s), send fallback payload", esp_err_to_name(err), status);
+            esp_err_t send_err = espnow_sender_send_text("env", payload);
+            if (send_err != ESP_OK) {
+                ESP_LOGW(TAG, "Environment fallback ESP-NOW send failed: %s", esp_err_to_name(send_err));
+            }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(MIMI_AHT10_MONITOR_INTERVAL_MS));
+        vTaskDelay(pdMS_TO_TICKS(MIMI_ENVIRONMENT_MONITOR_INTERVAL_MS));
     }
 }
 
@@ -226,8 +259,8 @@ void app_main(void)
         ? ESP_OK : ESP_FAIL);
 
     ESP_ERROR_CHECK((xTaskCreatePinnedToCore(
-        aht10_monitor_task, "aht10_mon",
-        4096, NULL, 4, NULL, 0) == pdPASS)
+        environment_monitor_task, "env_mon",
+        5120, NULL, 4, NULL, 0) == pdPASS)
         ? ESP_OK : ESP_FAIL);
 
     ESP_ERROR_CHECK((xTaskCreatePinnedToCore(

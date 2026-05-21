@@ -547,17 +547,29 @@ void llm_response_free(llm_response_t *resp)
     resp->tool_use = false;
 }
 
+/*
+ * name: llm_chat_tools
+ * 定义: 与LLM进行一次性非流式交互，支持工具调用。输入系统提示、消息历史和工具定义，输出文本响应和工具调用列表。
+ * 参数:
+ *   - system_prompt: 系统提示文本，指导LLM行为。
+ *  - messages: cJSON数组，包含消息历史，每条消息有"role"
+ *   (system/user/assistant)和"content"（文本或内容块数组）。
+ *   - tools_json: 工具定义的JSON字符串。
+ *   - resp: 输出的LLM响应结构体。
+ */
 esp_err_t llm_chat_tools(const char *system_prompt,
                          cJSON *messages,
                          const char *tools_json,
                          llm_response_t *resp)
 {
+    // 初始化响应结构体
     memset(resp, 0, sizeof(*resp));
 
     if (s_api_key[0] == '\0') return ESP_ERR_INVALID_STATE;
 
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
+    // 加入模型和提供商信息
     cJSON_AddStringToObject(body, "model", s_model);
     if (provider_is_openai()) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);

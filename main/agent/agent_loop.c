@@ -86,6 +86,17 @@ static bool tool_guard_match_light_sensor_request(const char *message)
            message_has_any_keyword(message, intent_keywords, sizeof(intent_keywords) / sizeof(intent_keywords[0]));
 }
 
+static bool tool_guard_match_environment_request(const char *message)
+{
+    static const char *const keywords[] = {
+        "environment", "all sensors", "combined sensor", "combined test", "sensor suite",
+        "aht20", "aht10", "sgp30", "gy-30", "gy30", "bh1750",
+        "综合测试", "环境数据", "环境传感器", "全部传感器", "所有传感器",
+        "温湿度空气质量光照", "温湿度", "空气质量", "光照",
+    };
+    return message_has_any_keyword(message, keywords, sizeof(keywords) / sizeof(keywords[0]));
+}
+
 static bool tool_guard_match_light_request(const char *message)
 {
     static const char *const keywords[] = {
@@ -189,7 +200,10 @@ static bool tool_guard_check(const llm_tool_call_t *call, const mimi_msg_t *msg,
     bool allowed = true;
     const char *expected = NULL;
 
-    if (strcmp(tool_name, "read_light_level") == 0) {
+    if (strcmp(tool_name, "read_environment") == 0) {
+        allowed = tool_guard_match_environment_request(message);
+        expected = "combined AHT20/SGP30/GY-30 environment sensor reading";
+    } else if (strcmp(tool_name, "read_light_level") == 0) {
         allowed = tool_guard_match_light_sensor_request(message);
         expected = "ambient-light, illuminance, lux, or GY-30/BH1750 sensor reading";
     } else if (strcmp(tool_name, "set_status_light") == 0 || strcmp(tool_name, "ws2812_set") == 0) {

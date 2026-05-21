@@ -6,8 +6,10 @@
 #include "tools/tool_get_time.h"
 #include "tools/tool_gpio.h"
 #include "tools/tool_aht10.h"
+#include "tools/tool_environment.h"
 #include "tools/tool_hc_sr05.h"
 #include "tools/tool_servo.h"
+#include "tools/tool_max98357.h"
 #include "tools/tool_sgp30.h"
 #include "tools/tool_bh1750.h"
 #include "tools/tool_web_search.h"
@@ -19,7 +21,7 @@
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 24
+#define MAX_TOOLS 25
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -97,6 +99,24 @@ esp_err_t tool_registry_init(void)
             "\"address\":{\"type\":\"integer\",\"description\":\"Optional AHT10 I2C address, normally 0x38\"}},"
             "\"required\":[]}",
         .execute = tool_aht10_read_temperature_humidity_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "read_environment",
+        .description = "Read the 3-I2C environment sensor set in one call: AHT20/AHT10 temperature and humidity on hardware I2C0, SGP30 eCO2/TVOC on hardware I2C1, and GY-30/BH1750 light level on software I2C. Prefer this when the user asks for a combined environment test, comprehensive sensor test, AHT20+SGP30+GY30, or Chinese phrases like '综合测试', '环境数据', '读取全部传感器', '温湿度空气质量光照'.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"aht_sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional AHT20 hardware I2C SDA GPIO override\"},"
+            "\"aht_scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional AHT20 hardware I2C SCL GPIO override\"},"
+            "\"aht_i2c_port\":{\"type\":\"integer\",\"description\":\"Optional AHT20 hardware I2C port override\"},"
+            "\"sgp30_sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional SGP30 hardware I2C SDA GPIO override\"},"
+            "\"sgp30_scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional SGP30 hardware I2C SCL GPIO override\"},"
+            "\"sgp30_i2c_port\":{\"type\":\"integer\",\"description\":\"Optional SGP30 hardware I2C port override\"},"
+            "\"gy30_sda_gpio\":{\"type\":\"integer\",\"description\":\"Optional GY-30 software I2C SDA GPIO override\"},"
+            "\"gy30_scl_gpio\":{\"type\":\"integer\",\"description\":\"Optional GY-30 software I2C SCL GPIO override\"},"
+            "\"gy30_addr\":{\"type\":\"integer\",\"description\":\"Optional GY-30/BH1750 address, 0x23 by default or 0x5C when ADDR is high\"}},"
+            "\"required\":[]}",
+        .execute = tool_read_environment_execute,
     });
 
     register_tool(&(mimi_tool_t){
@@ -237,6 +257,24 @@ esp_err_t tool_registry_init(void)
             "\"pulse_us\":{\"type\":\"integer\",\"description\":\"Pulse width in microseconds (typically 500-2500 for standard servos)\"}},"
             "\"required\":[]}",
         .execute = tool_servo_write_execute,
+    });
+
+    register_tool(&(mimi_tool_t){
+        .name = "max98357_play_tone",
+        .description = "Play a short test tone through a MAX98357 I2S audio amplifier / speaker. Use this when the user asks to test audio output, a speaker, an audio amplifier, a beep, or MAX98357 wiring. The fixed wiring is BCLK=GPIO1, WS/LRCLK=GPIO2, DIN=GPIO3; SD is optional.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{\"frequency_hz\":{\"type\":\"integer\",\"description\":\"Tone frequency in Hz, defaults to 440\"},"
+            "\"duration_ms\":{\"type\":\"integer\",\"description\":\"Tone duration in milliseconds, defaults to 400\"},"
+            "\"volume_pct\":{\"type\":\"integer\",\"description\":\"Output volume percentage 0-100, defaults to 25\"},"
+            "\"bclk_gpio\":{\"type\":\"integer\",\"description\":\"Optional I2S BCLK GPIO override\"},"
+            "\"ws_gpio\":{\"type\":\"integer\",\"description\":\"Optional I2S WS/LRCLK GPIO override\"},"
+            "\"din_gpio\":{\"type\":\"integer\",\"description\":\"Optional I2S DATA/DIN GPIO override\"},"
+            "\"sd_gpio\":{\"type\":\"integer\",\"description\":\"Optional amplifier shutdown GPIO override, if wired\"},"
+            "\"i2s_port\":{\"type\":\"integer\",\"description\":\"Optional I2S port override, defaults to configured port\"},"
+            "\"sample_rate_hz\":{\"type\":\"integer\",\"description\":\"Optional sample rate override in Hz\"}},"
+            "\"required\":[]}",
+        .execute = tool_max98357_play_tone_execute,
     });
 
     register_tool(&(mimi_tool_t){

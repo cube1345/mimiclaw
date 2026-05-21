@@ -35,6 +35,5 @@ CONFIG_HTTPD_WS_SUPPORT=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 
-# Console: USB Serial/JTAG so logs are visible on /dev/ttyACM0 (native USB port).
-# Disable UART console since this board has no external USB-UART bridge.
-CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# Console: use UART0 so logs and REPL appear on the USB-UART bridge (/dev/ttyUSB0).
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
